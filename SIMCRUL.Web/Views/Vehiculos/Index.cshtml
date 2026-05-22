@@ -1,0 +1,367 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    ViewData["Title"] = "Mantenimiento de Vehículos";
+}
+
+<div style="max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem;">
+    <!-- Header Actions -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <div>
+            <h1 style="font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                <i class="fa-solid fa-bus"></i> Mantenimiento de Vehículos
+            </h1>
+            <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">
+                Administre la flota de combis, cústers y autobuses del sistema.
+            </p>
+        </div>
+        <button onclick="openModal()" class="btn-primary">
+            <i class="fa-solid fa-plus"></i> Agregar Vehículo
+        </button>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="glass-card" style="padding: 1rem; margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center;">
+        <div style="flex: 1; position: relative;">
+            <input type="text" id="search-input" onkeyup="filterTable()" class="custom-input" placeholder="Buscar por placa o código..." style="padding-left: 2.5rem;" />
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <label class="form-label" style="margin-bottom: 0; white-space: nowrap;">Mostrar inactivos</label>
+            <input type="checkbox" id="show-deleted" onchange="fetchVehicles()" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);" />
+        </div>
+    </div>
+
+    <!-- Table Container -->
+    <div class="glass-card" style="overflow-x: auto; padding: 1rem;">
+        <table id="vehicles-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <th style="padding: 1rem;">Código</th>
+                    <th style="padding: 1rem;">Placa</th>
+                    <th style="padding: 1rem;">Tipo</th>
+                    <th style="padding: 1rem;">Marca / Modelo</th>
+                    <th style="padding: 1rem; text-align: center;">Año</th>
+                    <th style="padding: 1rem; text-align: center;">Capacidad</th>
+                    <th style="padding: 1rem; text-align: center;">V. Máx. (km/h)</th>
+                    <th style="padding: 1rem; text-align: center;">Estado</th>
+                    <th style="padding: 1rem; text-align: right;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="vehicles-list">
+                <!-- Rendered dynamically -->
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block;"></i> Cargando vehículos...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="vehicle-modal" class="modal-overlay">
+    <div class="glass-card" style="width: 100%; max-width: 600px; padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+            <h3 id="modal-title" style="font-size: 1.3rem; font-weight: 700; color: white;">
+                <i class="fa-solid fa-bus"></i> Agregar Vehículo
+            </h3>
+            <button onclick="closeModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <form id="vehicle-form" onsubmit="saveVehicle(event)" style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <input type="hidden" id="vehicle-id" name="idVehiculo" value="0" />
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <label class="form-label">Placa *</label>
+                    <input type="text" id="placa" name="placa" class="custom-input" placeholder="Ej: F3V-894" required />
+                </div>
+                <div>
+                    <label class="form-label">Código Interno *</label>
+                    <input type="text" id="codigo-interno" name="codigoInterno" class="custom-input" placeholder="Ej: V-102" required />
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <label class="form-label">Tipo de Vehículo *</label>
+                    <select id="tipo-vehiculo" name="tipoVehiculo" class="custom-input" required>
+                        <option value="BUS">Autobús (Grande)</option>
+                        <option value="CUSTER" selected>Cúster</option>
+                        <option value="COMBI">Combi</option>
+                        <option value="AUTO">Automóvil / Taxi</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Año</label>
+                    <input type="number" id="anio" name="anio" class="custom-input" min="1990" max="2027" placeholder="Ej: 2021" />
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <label class="form-label">Marca</label>
+                    <input type="text" id="marca" name="marca" class="custom-input" placeholder="Ej: Toyota" />
+                </div>
+                <div>
+                    <label class="form-label">Modelo</label>
+                    <input type="text" id="modelo" name="modelo" class="custom-input" placeholder="Ej: Coaster" />
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <label class="form-label">Capacidad Pasajeros *</label>
+                    <input type="number" id="capacidad" name="capacidadPasajeros" class="custom-input" min="1" required placeholder="Ej: 25" />
+                </div>
+                <div>
+                    <label class="form-label">Velocidad Máxima (km/h) *</label>
+                    <input type="number" id="velocidad-max" name="velocidadMaximaKmh" class="custom-input" min="1" required placeholder="Ej: 90" />
+                </div>
+            </div>
+
+            <div id="estado-container" style="display: none; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" id="estado" name="estado" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);" checked />
+                <label class="form-label" style="margin-bottom: 0; cursor: pointer;" for="estado">Vehículo Activo</label>
+            </div>
+
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 0.5rem;">
+                <button type="button" onclick="closeModal()" class="custom-input" style="width: auto; padding: 0.6rem 1.5rem; background: rgba(255,255,255,0.05); color: white; cursor: pointer; border-radius: 8px;">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary" style="border-radius: 8px; padding: 0.6rem 2rem;">
+                    Guardar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        #vehicles-table tbody tr {
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s;
+        }
+        #vehicles-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .status-badge {
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .status-active {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .status-inactive {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .btn-action {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .btn-edit {
+            color: var(--primary);
+        }
+        .btn-edit:hover {
+            background: rgba(6, 182, 212, 0.1);
+        }
+        .btn-delete {
+            color: var(--danger);
+        }
+        .btn-delete:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        const apiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
+        const token = '@Context.Session.GetString("Token")';
+
+        let allVehicles = [];
+
+        async function fetchVehicles() {
+            const showDeleted = document.getElementById('show-deleted').checked;
+            const tbody = document.getElementById('vehicles-list');
+            
+            try {
+                const res = await fetch(`${apiBaseUrl}vehiculos?includeDeleted=${showDeleted}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (res.ok) {
+                    allVehicles = await res.json();
+                    renderTable(allVehicles);
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--danger);">Error al cargar los vehículos (${res.status}).</td></tr>`;
+                }
+            } catch (err) {
+                console.error(err);
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--danger);">Falla de conexión con la API.</td></tr>`;
+            }
+        }
+
+        function renderTable(list) {
+            const tbody = document.getElementById('vehicles-list');
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:3rem; color:var(--text-muted);">No se encontraron vehículos.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            list.forEach(v => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding:1rem; font-weight:600; color:var(--primary);">${v.codigoInterno}</td>
+                    <td style="padding:1rem; font-weight:700;">${v.placa}</td>
+                    <td style="padding:1rem;"><span style="font-size:0.85rem; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${v.tipoVehiculo}</span></td>
+                    <td style="padding:1rem;">${v.marca || ''} ${v.modelo || ''}</td>
+                    <td style="padding:1rem; text-align:center;">${v.anio || '-'}</td>
+                    <td style="padding:1rem; text-align:center;">${v.capacidadPasajeros} pasajeros</td>
+                    <td style="padding:1rem; text-align:center;">${v.velocidadMaximaKmh} km/h</td>
+                    <td style="padding:1rem; text-align:center;">
+                        <span class="status-badge ${v.estado ? 'status-active' : 'status-inactive'}">
+                            ${v.estado ? 'Activo' : 'Inactivo'}
+                        </span>
+                    </td>
+                    <td style="padding:1rem; text-align:right;">
+                        <button onclick="editVehicle(${v.idVehiculo})" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                        ${v.estado ? `<button onclick="deleteVehicle(${v.idVehiculo})" class="btn-action btn-delete" title="Desactivar"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterTable() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            if (!query) {
+                renderTable(allVehicles);
+                return;
+            }
+
+            const filtered = allVehicles.filter(v => 
+                v.placa.toLowerCase().includes(query) || 
+                v.codigoInterno.toLowerCase().includes(query) || 
+                (v.marca && v.marca.toLowerCase().includes(query)) ||
+                (v.modelo && v.modelo.toLowerCase().includes(query))
+            );
+            renderTable(filtered);
+        }
+
+        function openModal(isEdit = false) {
+            const modal = document.getElementById('vehicle-modal');
+            modal.classList.add('active');
+            document.getElementById('estado-container').style.display = isEdit ? 'flex' : 'none';
+            if (!isEdit) {
+                document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-bus"></i> Agregar Vehículo';
+                document.getElementById('vehicle-form').reset();
+                document.getElementById('vehicle-id').value = "0";
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('vehicle-modal').classList.remove('active');
+        }
+
+        async function editVehicle(id) {
+            const v = allVehicles.find(item => item.idVehiculo === id);
+            if (!v) return;
+
+            document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-bus"></i> Editar Vehículo';
+            document.getElementById('vehicle-id').value = v.idVehiculo;
+            document.getElementById('placa').value = v.placa;
+            document.getElementById('codigo-interno').value = v.codigoInterno;
+            document.getElementById('tipo-vehiculo').value = v.tipoVehiculo;
+            document.getElementById('anio').value = v.anio || '';
+            document.getElementById('marca').value = v.marca || '';
+            document.getElementById('modelo').value = v.modelo || '';
+            document.getElementById('capacidad').value = v.capacidadPasajeros;
+            document.getElementById('velocidad-max').value = v.velocidadMaximaKmh;
+            document.getElementById('estado').checked = v.estado;
+
+            openModal(true);
+        }
+
+        async function saveVehicle(e) {
+            e.preventDefault();
+            const id = parseInt(document.getElementById('vehicle-id').value);
+            
+            const payload = {
+                idVehiculo: id,
+                placa: document.getElementById('placa').value,
+                codigoInterno: document.getElementById('codigo-interno').value,
+                tipoVehiculo: document.getElementById('tipo-vehiculo').value,
+                anio: document.getElementById('anio').value ? parseInt(document.getElementById('anio').value) : null,
+                marca: document.getElementById('marca').value || null,
+                modelo: document.getElementById('modelo').value || null,
+                capacidadPasajeros: parseInt(document.getElementById('capacidad').value),
+                velocidadMaximaKmh: parseFloat(document.getElementById('velocidad-max').value),
+                estado: id === 0 ? true : document.getElementById('estado').checked
+            };
+
+            const method = id === 0 ? 'POST' : 'PUT';
+            const url = id === 0 ? `${apiBaseUrl}vehiculos` : `${apiBaseUrl}vehiculos/${id}`;
+
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    closeModal();
+                    fetchVehicles();
+                } else {
+                    const err = await res.json();
+                    alert(`Error al guardar: ${err.message || 'Intente nuevamente'}`);
+                }
+            } catch (err) {
+                alert("Falla de conexión.");
+            }
+        }
+
+        async function deleteVehicle(id) {
+            if (!confirm("¿Está seguro que desea desactivar (Soft Delete) este vehículo?")) return;
+
+            try {
+                const res = await fetch(`${apiBaseUrl}vehiculos/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.ok) {
+                    fetchVehicles();
+                } else {
+                    alert("Error al desactivar el vehículo.");
+                }
+            } catch (err) {
+                alert("Falla de conexión.");
+            }
+        }
+
+        // Init load
+        fetchVehicles();
+    </script>
+}

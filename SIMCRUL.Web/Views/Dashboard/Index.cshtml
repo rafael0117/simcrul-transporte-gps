@@ -1,0 +1,342 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    ViewData["Title"] = "Panel de Control Operativo";
+}
+
+<div class="kpi-grid" style="margin: 0 auto; max-width: 1400px; padding: 1.5rem 1.5rem 0 1.5rem;">
+    <div class="glass-card kpi-card">
+        <span class="kpi-title"><i class="fa-solid fa-bus" style="color: var(--primary);"></i> Vehículos en Ruta</span>
+        <span class="kpi-value" id="kpi-active-vehicles">0</span>
+    </div>
+    <div class="glass-card kpi-card">
+        <span class="kpi-title"><i class="fa-solid fa-triangle-exclamation" style="color: var(--danger);"></i> Alertas Hoy</span>
+        <span class="kpi-value" id="kpi-alerts-today" style="color: var(--danger);">0</span>
+    </div>
+    <div class="glass-card kpi-card">
+        <span class="kpi-title"><i class="fa-solid fa-gauge" style="color: var(--warning);"></i> Velocidad Prom.</span>
+        <span class="kpi-value" id="kpi-avg-speed">0.0 km/h</span>
+    </div>
+    <div class="glass-card kpi-card">
+        <span class="kpi-title"><i class="fa-solid fa-route" style="color: var(--success);"></i> Score Prom. Operativo</span>
+        <span class="kpi-value" id="kpi-avg-score" style="color: var(--success);">100 pts</span>
+    </div>
+</div>
+
+<div class="dashboard-layout" style="max-width: 1400px; margin: 1.5rem auto; padding: 0 1.5rem; gap: 1.5rem; height: calc(100vh - 180px); grid-template-columns: 400px 1fr;">
+    <!-- Control Sidebar -->
+    <div class="glass-card sidebar" style="overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem;">
+        <div>
+            <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                <i class="fa-solid fa-print"></i> Reportes de Auditoría
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <div>
+                    <label class="form-label">Desde</label>
+                    <input type="date" id="report-from" class="custom-input" />
+                </div>
+                <div>
+                    <label class="form-label">Hasta</label>
+                    <input type="date" id="report-to" class="custom-input" />
+                </div>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button onclick="downloadReport('pdf')" class="btn-primary" style="flex: 1; padding: 0.5rem; border-radius: 8px; font-size: 0.85rem; background: var(--secondary);">
+                        <i class="fa-solid fa-file-pdf"></i> PDF
+                    </button>
+                    <button onclick="downloadReport('excel')" class="btn-primary" style="flex: 1; padding: 0.5rem; border-radius: 8px; font-size: 0.85rem; background: var(--success);">
+                        <i class="fa-solid fa-file-excel"></i> Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+            <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+                <span><i class="fa-solid fa-bell-concierge"></i> Alertas Recientes</span>
+                <span class="badge" id="alert-badge" style="background: var(--danger); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 10px; display: none;">0</span>
+            </h3>
+            <div id="alerts-container" style="flex: 1; overflow-y: auto; padding-right: 0.25rem;">
+                <!-- Dynamically populated -->
+                <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; margin-top: 2rem;">Sin alertas críticas pendientes.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Map Map container -->
+    <div class="glass-card" style="padding: 1rem; position: relative;">
+        <div id="map" style="height: 100%; border-radius: 12px;"></div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    <script>
+        const apiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
+        const signalrUrl = '@Configuration["ApiSettings:SignalrUrl"]';
+
+        // Set dates on report pickers
+        document.getElementById('report-from').valueAsDate = new Date();
+        document.getElementById('report-to').valueAsDate = new Date();
+
+        function downloadReport(type) {
+            const from = document.getElementById('report-from').value;
+            const to = document.getElementById('report-to').value;
+            if (type === 'pdf') {
+                window.open(`/Dashboard/DownloadPdf?dateFrom=${from}&dateTo=${to}`, '_blank');
+            } else {
+                window.open(`/Dashboard/DownloadExcel?dateFrom=${from}&dateTo=${to}`, '_blank');
+            }
+        }
+
+        // Initialize Map
+        const map = L.map('map').setView([-12.046374, -77.042793], 12); // Lima coordinates
+        
+        // CartoDB Dark Matter tile layer (Premium look)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+        }).addTo(map);
+
+        const vehicleMarkers = {};
+        let activeRouteLine = null;
+
+        // Custom Marker Styles
+        const createBusMarker = (placa, color = 'var(--primary)') => {
+            return L.divIcon({
+                html: `<div style="position: relative; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: rgba(15, 23, 42, 0.85); border: 2px solid ${color}; border-radius: 50%; box-shadow: 0 0 10px ${color}; color: white; font-weight: bold; font-size: 8px;">
+                        <i class="fa-solid fa-bus" style="font-size: 14px; color: ${color};"></i>
+                        <span style="position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); background: rgba(11,15,25,0.85); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); color: #fff; font-size: 8px; white-space: nowrap;">${placa}</span>
+                       </div>`,
+                className: 'custom-bus-marker',
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+        };
+
+        // Load Initial Operational Data
+        async function fetchKpis() {
+            try {
+                const res = await fetch(`${apiBaseUrl}dashboard/kpis`);
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('kpi-active-vehicles').textContent = data.vehiculosActivos;
+                    document.getElementById('kpi-alerts-today').textContent = data.alertasHoy;
+                    document.getElementById('kpi-avg-speed').textContent = `${data.velocidadPromedioKmh} km/h`;
+                    document.getElementById('kpi-avg-score').textContent = `${data.scorePromedioConductores} pts`;
+                }
+            } catch (err) {
+                console.error("Error fetching KPIs:", err);
+            }
+        }
+
+        async function fetchActiveVehicles() {
+            try {
+                const res = await fetch(`${apiBaseUrl}active-vehicles`);
+                if (res.ok) {
+                    const vehicles = await res.json();
+                    vehicles.forEach(v => {
+                        updateOrAddVehicleMarker(v);
+                    });
+                }
+            } catch (err) {
+                console.error("Error fetching active vehicles:", err);
+            }
+        }
+
+        async function fetchPendingAlerts() {
+            try {
+                const res = await fetch(`${apiBaseUrl}dashboard/pending-alerts`);
+                if (res.ok) {
+                    const alerts = await res.json();
+                    const container = document.getElementById('alerts-container');
+                    if (alerts.length === 0) {
+                        container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; margin-top: 2rem;">Sin alertas críticas pendientes.</p>`;
+                        document.getElementById('alert-badge').style.display = 'none';
+                        return;
+                    }
+                    
+                    document.getElementById('alert-badge').textContent = alerts.length;
+                    document.getElementById('alert-badge').style.display = 'inline-block';
+
+                    container.innerHTML = '';
+                    alerts.forEach(a => {
+                        addAlertToSidebar(a, true);
+                    });
+                }
+            } catch (err) {
+                console.error("Error fetching pending alerts:", err);
+            }
+        }
+
+        function animateMarkerTo(marker, endLatLng, duration = 3000) {
+            const startLatLng = marker.getLatLng();
+            const startTime = performance.now();
+
+            function step(now) {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                const currentLat = startLatLng.lat + (endLatLng[0] - startLatLng.lat) * progress;
+                const currentLng = startLatLng.lng + (endLatLng[1] - startLatLng.lng) * progress;
+
+                marker.setLatLng([currentLat, currentLng]);
+
+                if (progress < 1) {
+                    marker.animationFrameId = requestAnimationFrame(step);
+                } else {
+                    marker.animationFrameId = null;
+                }
+            }
+
+            if (marker.animationFrameId) {
+                cancelAnimationFrame(marker.animationFrameId);
+            }
+            marker.animationFrameId = requestAnimationFrame(step);
+        }
+
+        function updateOrAddVehicleMarker(v) {
+            if (!v.latitud || !v.longitud) return;
+
+            const latlng = [v.latitud, v.longitud];
+            const isAlert = v.alertaActiva;
+            const markerColor = isAlert ? 'var(--danger)' : 'var(--primary)';
+
+            const popupContent = `
+                <div style="color: #0f172a; font-family: 'Outfit', sans-serif; min-width: 150px;">
+                    <h4 style="margin-bottom: 4px; border-bottom: 1px solid #ddd; padding-bottom: 2px;">Vehículo: ${v.placa}</h4>
+                    <p style="margin: 2px 0;"><strong>Ruta:</strong> ${v.codigoRuta || 'N/A'}</p>
+                    <p style="margin: 2px 0;"><strong>Conductor:</strong> ${v.conductor || 'N/A'}</p>
+                    <p style="margin: 2px 0;"><strong>Velocidad:</strong> ${v.velocidadKmh || 0} km/h</p>
+                    <p style="margin: 2px 0;"><strong>Score:</strong> ${v.scoreConduccion || 100} pts</p>
+                    <button onclick="drawRoutePath(${v.idRuta})" style="background: var(--primary); color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; margin-top: 6px; width: 100%;">Visualizar Ruta</button>
+                </div>
+            `;
+
+            if (vehicleMarkers[v.idVehiculo]) {
+                const marker = vehicleMarkers[v.idVehiculo];
+                animateMarkerTo(marker, latlng, 3000);
+                marker.setIcon(createBusMarker(v.placa, markerColor));
+                marker.bindPopup(popupContent);
+            } else {
+                const marker = L.marker(latlng, { icon: createBusMarker(v.placa, markerColor) }).addTo(map);
+                marker.bindPopup(popupContent);
+                vehicleMarkers[v.idVehiculo] = marker;
+            }
+        }
+
+        async function drawRoutePath(routeId) {
+            if (!routeId) return;
+            try {
+                const res = await fetch(`${apiBaseUrl}dashboard/route/${routeId}/details`);
+                if (res.ok) {
+                    const route = await res.json();
+                    
+                    // Remove existing line
+                    if (activeRouteLine) {
+                        map.removeLayer(activeRouteLine);
+                    }
+
+                    const points = route.rutaPuntosControl.map(p => [p.latitud, p.longitud]);
+                    if (points.length > 0) {
+                        activeRouteLine = L.polyline(points, { color: 'var(--primary)', weight: 4, opacity: 0.7 }).addTo(map);
+                        map.fitBounds(activeRouteLine.getBounds());
+                    }
+                }
+            } catch (err) {
+                console.error("Error drawing route line:", err);
+            }
+        }
+
+        function addAlertToSidebar(a, append = false) {
+            const container = document.getElementById('alerts-container');
+            const alertHtml = `
+                <div class="alert-item ${a.severidad >= 4 ? 'severity-high' : 'severity-medium'}" id="alert-card-${a.idAlerta}">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <span style="font-weight: bold; color: var(--danger); font-size: 0.95rem;">${a.tipo || 'Infracción'}</span>
+                        <span style="font-size: 0.75rem; color: var(--text-secondary);">${a.fecha}</span>
+                    </div>
+                    <span style="font-size: 0.85rem; color: var(--text-primary);">${a.descripcion}</span>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                        <span>Placa: <strong>${a.placa}</strong></span> | <span>Cond: <strong>${a.conductor}</strong></span>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <button onclick="zoomToAlert(${a.latitud}, ${a.longitud})" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border-color); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; flex: 1;">
+                            <i class="fa-solid fa-crosshairs"></i> Enfocar
+                        </button>
+                        <button onclick="attendAlert(${a.idAlerta})" style="background: var(--success); color: white; border: none; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; flex: 1;">
+                            <i class="fa-solid fa-check"></i> Atender
+                        </button>
+                    </div>
+                </div>
+            `;
+            if (append) {
+                container.insertAdjacentHTML('beforeend', alertHtml);
+            } else {
+                // If it's a real-time event, remove default placeholder if present
+                if (container.querySelector('p')) {
+                    container.innerHTML = '';
+                }
+                container.insertAdjacentHTML('afterbegin', alertHtml);
+            }
+        }
+
+        function zoomToAlert(lat, lng) {
+            if (lat && lng) {
+                map.setView([lat, lng], 16);
+            }
+        }
+
+        async function attendAlert(id) {
+            const obs = prompt("Ingrese observaciones sobre la infracción:");
+            if (obs === null) return; // user cancelled
+
+            try {
+                const res = await fetch(`${apiBaseUrl}dashboard/attend-alert/${id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(obs)
+                });
+                if (res.ok) {
+                    alert("Alerta archivada con éxito.");
+                    fetchPendingAlerts();
+                }
+            } catch (err) {
+                alert("Error al archivar la alerta.");
+            }
+        }
+
+        // Establish SignalR connection
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl(signalrUrl)
+            .withAutomaticReconnect()
+            .build();
+
+        connection.on("SendTelemetryUpdate", (v) => {
+            updateOrAddVehicleMarker(v);
+            fetchKpis();
+        });
+
+        connection.on("SendAlertNotification", (a) => {
+            addAlertToSidebar(a);
+            fetchPendingAlerts();
+            fetchKpis();
+            // Optional: Shake map or flash screen for warning
+            console.log("Nueva alerta crítica:", a);
+        });
+
+        async function startSignalR() {
+            try {
+                await connection.start();
+                console.log("Conectado con éxito a SignalR GpsHub");
+            } catch (err) {
+                console.error("SignalR Connection Error:", err);
+                setTimeout(startSignalR, 5000);
+            }
+        }
+
+        // Init load
+        fetchKpis();
+        fetchActiveVehicles();
+        fetchPendingAlerts();
+        startSignalR();
+
+    </script>
+}

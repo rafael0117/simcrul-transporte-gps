@@ -1,0 +1,6 @@
+@SIMCRUL.API_HostAddress = http://localhost:5272
+
+GET {{SIMCRUL.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

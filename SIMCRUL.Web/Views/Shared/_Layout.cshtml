@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SIMCRUL GPS</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- Leaflet.js for GPS maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    @RenderSection("Styles", required: false)
+</head>
+<body>
+    <header class="custom-nav">
+        <div class="nav-container">
+            <a class="brand" asp-area="" asp-controller="Home" asp-action="Index">
+                <i class="fa-solid fa-map-location-dot"></i> SIMCRUL
+            </a>
+            <ul class="nav-links">
+                <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+                <li><a asp-controller="Passenger" asp-action="Index">Telemetría en Tiempo Real</a></li>
+                @if (Context.Session.GetString("Token") != null)
+                {
+                    <li><a asp-controller="Dashboard" asp-action="Index">Centro de Monitoreo Inteligente</a></li>
+                    <li><a asp-controller="Vehiculos" asp-action="Index">Vehículos</a></li>
+                    <li><a asp-controller="Conductores" asp-action="Index">Conductores</a></li>
+                    <li><a asp-controller="Rutas" asp-action="Index">Rutas</a></li>
+                    <li><a asp-controller="Auditoria" asp-action="Index">Trazabilidad Operacional</a></li>
+                    <li><a asp-controller="Dashboard" asp-action="Simulator">Simulador GPS</a></li>
+                    <li><a asp-controller="Home" asp-action="Logout" class="btn-primary" style="background: var(--danger); padding: 0.4rem 1rem;">Cerrar Sesión</a></li>
+                }
+                else
+                {
+                    <li><a asp-controller="Home" asp-action="Login" class="btn-primary">Operador Login</a></li>
+                }
+            </ul>
+        </div>
+    </header>
+
+    <main role="main">
+        @RenderBody()
+    </main>
+
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

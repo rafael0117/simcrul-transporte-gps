@@ -1,0 +1,257 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    ViewData["Title"] = "Simulador GPS Integrado";
+}
+
+<div class="dashboard-layout" style="max-width: 1400px; margin: 1.5rem auto; padding: 0 1.5rem; gap: 1.5rem; height: calc(100vh - 120px); grid-template-columns: 400px 1fr;">
+    <!-- Simulator Sidebar Panel -->
+    <div class="glass-card sidebar" style="overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem;">
+        <div>
+            <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                <i class="fa-solid fa-gamepad"></i> Control del Simulador
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <div>
+                    <label class="form-label">Seleccionar Ruta</label>
+                    <select id="sim-route-select" class="custom-input" onchange="loadRouteForSimulation()">
+                        <option value="">Cargando rutas...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">IMEI del Dispositivo Simulador</label>
+                    <input type="text" id="sim-imei" class="custom-input" value="IMEI88847294829" />
+                </div>
+                <div>
+                    <label class="form-label">Frecuencia de Envío (segundos)</label>
+                    <input type="number" id="sim-interval" class="custom-input" value="3" min="1" max="10" />
+                </div>
+                <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
+                    <button id="btn-start-sim" onclick="startSimulation()" class="btn-primary" style="flex: 1; padding: 0.6rem; border-radius: 8px; font-size: 0.9rem; background: var(--success);" disabled>
+                        <i class="fa-solid fa-play"></i> Iniciar
+                    </button>
+                    <button id="btn-stop-sim" onclick="stopSimulation()" class="btn-primary" style="flex: 1; padding: 0.6rem; border-radius: 8px; font-size: 0.9rem; background: var(--danger);" disabled>
+                        <i class="fa-solid fa-square-term"></i> Detener
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                <i class="fa-solid fa-radiation"></i> Inyectores de Eventos (Infracciones)
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <button onclick="setEventOverride('VELOCIDAD')" class="btn-primary" style="background: var(--warning); padding: 0.5rem; border-radius: 8px; font-size: 0.85rem;">
+                    <i class="fa-solid fa-gauge-high"></i> Forzar Exceso Velocidad
+                </button>
+                <button onclick="setEventOverride('DESVIO')" class="btn-primary" style="background: var(--secondary); padding: 0.5rem; border-radius: 8px; font-size: 0.85rem;">
+                    <i class="fa-solid fa-route"></i> Forzar Desvío Ruta
+                </button>
+                <button onclick="setEventOverride('PANICO')" class="btn-primary" style="background: var(--danger); padding: 0.5rem; border-radius: 8px; font-size: 0.85rem;">
+                    <i class="fa-solid fa-skull-crossbones"></i> Activar Pánico (S.O.S)
+                </button>
+            </div>
+        </div>
+
+        <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+            <h3 style="margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                <i class="fa-solid fa-terminal"></i> Log de Transmisión
+            </h3>
+            <div id="sim-console" style="flex: 1; background: #070a13; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem; font-family: monospace; font-size: 0.75rem; overflow-y: auto; color: #a3e635;">
+                [Sistema] Listo para simulación. Seleccione una ruta para ver los puntos de control en el mapa.
+            </div>
+        </div>
+    </div>
+
+    <!-- Map visualization -->
+    <div class="glass-card" style="padding: 1rem; position: relative;">
+        <div id="map" style="height: 100%; border-radius: 12px;"></div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const apiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
+        const map = L.map('map').setView([-12.046374, -77.042793], 12);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+        }).addTo(map);
+
+        let routesList = [];
+        let simulationPath = [];
+        let simulationIndex = 0;
+        let simIntervalId = null;
+        let simMarker = null;
+        let routePolyline = null;
+        let currentOverrideEvent = "NORMAL";
+
+        // Fetch Routes to select
+        async function fetchRoutes() {
+            try {
+                const res = await fetch(`${apiBaseUrl}dashboard/routes`);
+                if (res.ok) {
+                    routesList = await res.json();
+                    const select = document.getElementById('sim-route-select');
+                    select.innerHTML = '<option value="">-- Seleccione una Ruta --</option>';
+                    routesList.forEach(r => {
+                        select.innerHTML += `<option value="${r.idRuta}">${r.codigoRuta} - ${r.nombreRuta}</option>`;
+                    });
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Draw points of control and polyline
+        function loadRouteForSimulation() {
+            const routeId = parseInt(document.getElementById('sim-route-select').value);
+            if (!routeId) return;
+
+            const route = routesList.find(r => r.idRuta === routeId);
+            if (!route) return;
+
+            // Clear previous simulation states
+            stopSimulation();
+
+            // Clear map layers
+            if (routePolyline) map.removeLayer(routePolyline);
+            if (simMarker) map.removeLayer(simMarker);
+
+            // Get points of control sorted by orden
+            const points = route.rutaPuntosControl.map(p => [p.latitud, p.longitud]);
+            simulationPath = points;
+            simulationIndex = 0;
+
+            if (points.length > 0) {
+                routePolyline = L.polyline(points, { color: 'var(--primary)', weight: 5, dashArray: '5, 10' }).addTo(map);
+                map.fitBounds(routePolyline.getBounds());
+
+                // Set initial simulation marker location
+                simMarker = L.marker(points[0], {
+                    icon: L.divIcon({
+                        html: `<div style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; background:var(--success); border-radius:50%; border:2px solid white; box-shadow:0 0 10px var(--success);"><i class="fa-solid fa-car-side" style="color:white; font-size:12px;"></i></div>`,
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(map);
+
+                logConsole(`Ruta [${route.codigoRuta}] cargada con ${points.length} puntos de control.`);
+                document.getElementById('btn-start-sim').disabled = false;
+            } else {
+                logConsole("Error: La ruta seleccionada no tiene puntos de control.");
+                document.getElementById('btn-start-sim').disabled = true;
+            }
+        }
+
+        function logConsole(msg) {
+            const consoleBox = document.getElementById('sim-console');
+            const time = new Date().toLocaleTimeString();
+            consoleBox.innerHTML += `<br>[${time}] ${msg}`;
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+        }
+
+        function setEventOverride(event) {
+            currentOverrideEvent = event;
+            logConsole(`Evento forzado configurado para el siguiente envío: ${event}`);
+        }
+
+        function startSimulation() {
+            if (simIntervalId) return;
+
+            const interval = parseInt(document.getElementById('sim-interval').value) * 1000;
+            const imei = document.getElementById('sim-imei').value;
+
+            document.getElementById('btn-start-sim').disabled = true;
+            document.getElementById('btn-stop-sim').disabled = false;
+            document.getElementById('sim-route-select').disabled = true;
+
+            logConsole("Simulación iniciada...");
+            
+            simIntervalId = setInterval(async () => {
+                if (simulationIndex >= simulationPath.length) {
+                    simulationIndex = 0; // Loop simulation
+                    logConsole("Fin de la ruta alcanzado. Reiniciando bucle de simulación...");
+                }
+
+                let currentCoords = simulationPath[simulationIndex];
+                
+                // If event is DESVIO, we offset coords by adding ~0.005 degrees (~550 meters)
+                if (currentOverrideEvent === "DESVIO") {
+                    currentCoords = [currentCoords[0] + 0.005, currentCoords[1] + 0.005];
+                }
+
+                const speed = currentOverrideEvent === "VELOCIDAD" ? 95 : 45 + Math.floor(Math.random() * 15);
+                const payload = {
+                    imei: imei,
+                    latitud: currentCoords[0],
+                    longitud: currentCoords[1],
+                    velocidadKmh: speed,
+                    rumboGrados: 180.0,
+                    precisionMetros: 5.0,
+                    eventoForzado: currentOverrideEvent
+                };
+
+                // Move marker visual
+                simMarker.setLatLng(currentCoords);
+                if (currentOverrideEvent === "PANICO") {
+                    simMarker.setIcon(L.divIcon({
+                        html: `<div style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; background:var(--danger); border-radius:50%; border:2px solid white; box-shadow:0 0 15px var(--danger);" class="glow-active"><i class="fa-solid fa-exclamation" style="color:white; font-size:14px;"></i></div>`,
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    }));
+                } else if (currentOverrideEvent === "VELOCIDAD") {
+                    simMarker.setIcon(L.divIcon({
+                        html: `<div style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; background:var(--warning); border-radius:50%; border:2px solid white; box-shadow:0 0 15px var(--warning);"><i class="fa-solid fa-gauge" style="color:white; font-size:12px;"></i></div>`,
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    }));
+                } else {
+                    simMarker.setIcon(L.divIcon({
+                        html: `<div style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; background:var(--success); border-radius:50%; border:2px solid white; box-shadow:0 0 10px var(--success);"><i class="fa-solid fa-car-side" style="color:white; font-size:12px;"></i></div>`,
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    }));
+                }
+
+                // Send to API
+                try {
+                    const response = await fetch(`${apiBaseUrl}gps/telemetry`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const resJson = await response.json();
+                    
+                    if (response.ok) {
+                        logConsole(`Enviado P${simulationIndex + 1}: (${payload.latitud.toFixed(5)}, ${payload.longitud.toFixed(5)}) | Vel: ${payload.velocidadKmh} Km/h | Ev: ${payload.eventoForzado}`);
+                    } else {
+                        logConsole(`Error API: ${resJson.message}`);
+                    }
+                } catch (err) {
+                    logConsole(`Fallo de conexión al enviar telemetría: ${err}`);
+                }
+
+                // Increment index & reset override
+                simulationIndex++;
+                currentOverrideEvent = "NORMAL";
+
+            }, interval);
+        }
+
+        function stopSimulation() {
+            if (simIntervalId) {
+                clearInterval(simIntervalId);
+                simIntervalId = null;
+                logConsole("Simulación detenida.");
+            }
+            document.getElementById('btn-start-sim').disabled = false;
+            document.getElementById('btn-stop-sim').disabled = true;
+            document.getElementById('sim-route-select').disabled = false;
+        }
+
+        // Init
+        fetchRoutes();
+
+    </script>
+}

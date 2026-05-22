@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="SIMCRUL.API/SIMCRUL.API.csproj" />
+  <Project Path="SIMCRUL.Business/SIMCRUL.Business.csproj" />
+  <Project Path="SIMCRUL.Common/SIMCRUL.Common.csproj" />
+  <Project Path="SIMCRUL.Data/SIMCRUL.Data.csproj" />
+  <Project Path="SIMCRUL.Entity/SIMCRUL.Entity.csproj" />
+  <Project Path="SIMCRUL.Web/SIMCRUL.Web.csproj" />
+</Solution>

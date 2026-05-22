@@ -1,0 +1,38 @@
+@model SIMCRUL.Common.DTOs.Auth.LoginRequestDto
+@{
+    ViewData["Title"] = "Ingreso Operadores";
+}
+
+<div style="display: flex; justify-content: center; align-items: center; min-height: 80vh; padding: 2rem;">
+    <div class="glass-card" style="width: 100%; max-width: 450px; padding: 3rem;">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <i class="fa-solid fa-user-shield" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
+            <h2>Ingreso al Sistema</h2>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.25rem;">Plataforma de Monitoreo SIMCRUL</p>
+        </div>
+
+        <form asp-action="Login" method="post" style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div asp-validation-summary="ModelOnly" style="color: var(--danger); font-size: 0.9rem; list-style: none;"></div>
+
+            <div>
+                <label asp-for="UsernameOrEmail" class="form-label">Usuario o Correo</label>
+                <input asp-for="UsernameOrEmail" class="custom-input" placeholder="admin / operador" autocomplete="username" />
+                <span asp-validation-for="UsernameOrEmail" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem; display: block;"></span>
+            </div>
+
+            <div>
+                <label asp-for="Password" class="form-label">Contraseña</label>
+                <input asp-for="Password" type="password" class="custom-input" placeholder="••••••••" autocomplete="current-password" />
+                <span asp-validation-for="Password" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem; display: block;"></span>
+            </div>
+
+            <button type="submit" class="btn-primary" style="width: 100%; padding: 0.8rem; font-size: 1rem; border-radius: 12px; margin-top: 1rem;">
+                <i class="fa-solid fa-arrow-right-to-bracket"></i> Iniciar Sesión
+            </button>
+        </form>
+
+        <div style="margin-top: 1.5rem; text-align: center;">
+            <span style="color: var(--text-muted); font-size: 0.85rem;">¿No tiene una cuenta? Póngase en contacto con el administrador.</span>
+        </div>
+    </div>
+</div>
