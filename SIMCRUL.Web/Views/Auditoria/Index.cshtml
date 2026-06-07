@@ -3,7 +3,7 @@
     ViewData["Title"] = "Bitácora de Trazabilidad Operacional";
 }
 
-<div style="max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem;">
+<div class="page-shell">
     <!-- Header -->
     <div style="margin-bottom: 2rem;">
         <h1 style="font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
@@ -19,7 +19,7 @@
         <h3 style="font-size: 1rem; font-weight: 600; color: white; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
             <i class="fa-solid fa-filter"></i> Filtros de Búsqueda
         </h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <div class="form-grid-auto">
             <div>
                 <label class="form-label">Tabla Afectada</label>
                 <input type="text" id="filter-table" class="custom-input" placeholder="Ej: VEHICULOS" />
@@ -42,7 +42,7 @@
                 <input type="date" id="filter-to" class="custom-input" />
             </div>
         </div>
-        <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 0.5rem;">
+        <div class="panel-actions panel-actions-end" style="margin-top: 0.5rem;">
             <button onclick="clearFilters()" class="custom-input" style="width: auto; padding: 0.5rem 1.5rem; background: rgba(255,255,255,0.05); color: white; cursor: pointer; border-radius: 8px;">
                 Limpiar
             </button>
@@ -53,8 +53,8 @@
     </div>
 
     <!-- Table Container -->
-    <div class="glass-card" style="overflow-x: auto; padding: 1rem;">
-        <table id="audit-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+    <div class="glass-card responsive-table-card">
+        <table id="audit-table">
             <thead>
                 <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
                     <th style="padding: 1rem;">Fecha</th>
@@ -78,8 +78,8 @@
 
 <!-- Details Modal -->
 <div id="audit-detail-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); z-index: 2000; justify-content: center; align-items: center; padding: 1rem;">
-    <div class="glass-card" style="width: 100%; max-width: 800px; padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; max-height: 90vh;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+    <div class="glass-card modal-card modal-card-lg">
+        <div class="modal-header">
             <h3 style="font-size: 1.3rem; font-weight: 700; color: white;">
                 <i class="fa-solid fa-magnifying-glass-chart"></i> Detalle de Cambios en Base de Datos
             </h3>
@@ -88,7 +88,7 @@
             </button>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; font-size: 0.85rem; background: rgba(255,255,255,0.02); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color);">
+        <div class="audit-detail-grid">
             <div><strong>Usuario:</strong> <span id="detail-user" style="color: var(--primary);">SYSTEM</span></div>
             <div><strong>Acción:</strong> <span id="detail-action" class="action-badge">UPDATE</span></div>
             <div><strong>Tabla Afectada:</strong> <span id="detail-table" style="color: var(--secondary);">VEHICULOS</span></div>
@@ -98,7 +98,7 @@
             <!-- Comparison table goes here -->
         </div>
 
-        <div style="display: flex; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+        <div class="modal-actions">
             <button onclick="closeDetailModal()" class="btn-primary" style="border-radius: 8px; padding: 0.6rem 2rem;">
                 Cerrar
             </button>

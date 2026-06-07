@@ -62,6 +62,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IGpsProcessingService, GpsProcessingService>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddSingleton<IFleetSimulationService, FleetSimulationService>();
 
 // 5. Real-Time and Web APIs
 builder.Services.AddSignalR();

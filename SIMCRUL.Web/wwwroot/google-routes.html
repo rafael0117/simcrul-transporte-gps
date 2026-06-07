@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIMCRUL Google Maps</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #081018;
+            --panel: rgba(15, 23, 42, 0.88);
+            --line: rgba(255, 255, 255, 0.08);
+            --text: #f3f4f6;
+            --muted: #9ca3af;
+            --primary: #06b6d4;
+            --secondary: #10b981;
+            --danger: #ef4444;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, sans-serif;
+            background: linear-gradient(180deg, #07111c 0%, #0b1220 100%);
+            color: var(--text);
+        }
+
+        .shell {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            padding: 1.25rem;
+            background: var(--panel);
+            border-right: 1px solid var(--line);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 1rem;
+        }
+
+        h1, h2, h3, p { margin-top: 0; }
+
+        h1 {
+            font-size: 1.35rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .muted { color: var(--muted); }
+
+        select {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            background: #111827;
+            color: var(--text);
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.55rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .metric:last-child { border-bottom: 0; }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.3rem 0.7rem;
+            border-radius: 999px;
+            background: rgba(6, 182, 212, 0.12);
+            color: #7dd3fc;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .stops {
+            display: grid;
+            gap: 0.55rem;
+            max-height: 260px;
+            overflow: auto;
+        }
+
+        .stop-item {
+            padding: 0.7rem 0.8rem;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.92rem;
+        }
+
+        #map {
+            width: 100%;
+            min-height: 100vh;
+        }
+
+        .top-note {
+            font-size: 0.85rem;
+            color: #93c5fd;
+        }
+
+        @media (max-width: 980px) {
+            .shell {
+                grid-template-columns: 1fr;
+            }
+
+            #map {
+                min-height: 65vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <aside class="sidebar">
+            <div>
+                <span class="pill"><i class="fa-solid fa-map-location-dot"></i> Google Maps</span>
+                <h1>SIMCRUL Rutas en Vivo</h1>
+                <p class="muted">Mapa de rutas urbanas con trazado vial real y ubicacion GPS en tiempo real.</p>
+                <p class="top-note">API local: <code>http://localhost:5272/api</code></p>
+            </div>
+
+            <section class="card">
+                <h3>Seleccionar Ruta</h3>
+                <select id="routeSelect">
+                    <option value="">Cargando rutas...</option>
+                </select>
+            </section>
+
+            <section class="card">
+                <h3>Resumen</h3>
+                <div class="metric"><span>Paraderos</span><strong id="stopCount">0</strong></div>
+                <div class="metric"><span>Puntos de control</span><strong id="controlCount">0</strong></div>
+                <div class="metric"><span>Buses activos</span><strong id="busCount">0</strong></div>
+                <div class="metric"><span>ETA estimado</span><strong id="etaValue">--</strong></div>
+            </section>
+
+            <section class="card">
+                <h3>Paraderos</h3>
+                <div id="stops" class="stops">
+                    <div class="stop-item muted">Selecciona una ruta para visualizar el recorrido.</div>
+                </div>
+            </section>
+        </aside>
+
+        <main>
+            <div id="map"></div>
+        </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    <script>
+        const apiBaseUrl = "http://localhost:5272/api/";
+        const signalrUrl = "http://localhost:5272/gpsHub";
+        const googleMapsApiKey = "AIzaSyDF5d3P2EnYflJx6rVVsD3bmBQG2vN3vN4";
+
+        let map;
+        let directionsService;
+        let directionsRenderer;
+        let infoWindow;
+        let googleMapsLibrary;
+        let routes = [];
+        let activeRoute = null;
+        let stopMarkers = [];
+        let busMarkers = {};
+
+        async function loadGoogleMapsApi() {
+            if (window.google && window.google.maps) {
+                return;
+            }
+
+            await new Promise((resolve, reject) => {
+                const script = document.createElement("script");
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=routes&v=weekly`;
+                script.async = true;
+                script.defer = true;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        async function initializeMap() {
+            await loadGoogleMapsApi();
+
+            const { Map, InfoWindow } = await google.maps.importLibrary("maps");
+            const { DirectionsService, DirectionsRenderer } = await google.maps.importLibrary("routes");
+
+            googleMapsLibrary = google.maps;
+            map = new Map(document.getElementById("map"), {
+                center: { lat: -12.046374, lng: -77.042793 },
+                zoom: 12,
+                mapTypeControl: false,
+                streetViewControl: false
+            });
+
+            directionsService = new DirectionsService();
+            directionsRenderer = new DirectionsRenderer({
+                map,
+                suppressMarkers: true,
+                polylineOptions: {
+                    strokeColor: "#06b6d4",
+                    strokeOpacity: 0.9,
+                    strokeWeight: 5
+                }
+            });
+
+            infoWindow = new InfoWindow();
+        }
+
+        async function fetchRoutes() {
+            const response = await fetch(`${apiBaseUrl}dashboard/routes`);
+            routes = await response.json();
+
+            const select = document.getElementById("routeSelect");
+            select.innerHTML = '<option value="">-- Seleccione una ruta --</option>';
+            routes.forEach(route => {
+                select.innerHTML += `<option value="${route.idRuta}">${route.codigoRuta} - ${route.nombreRuta}</option>`;
+            });
+        }
+
+        function clearVisuals() {
+            stopMarkers.forEach(marker => marker.setMap(null));
+            stopMarkers = [];
+
+            Object.values(busMarkers).forEach(marker => marker.setMap(null));
+            busMarkers = {};
+
+            directionsRenderer.set("directions", null);
+        }
+
+        function renderStops(route) {
+            const stopsContainer = document.getElementById("stops");
+            stopsContainer.innerHTML = "";
+
+            route.rutaParaderos
+                .sort((a, b) => a.orden - b.orden)
+                .forEach(item => {
+                    const stop = item.paradero;
+                    stopsContainer.innerHTML += `<div class="stop-item"><strong>${item.orden}.</strong> ${stop.nombre}<br><span class="muted">${stop.direccionReferencia || ""}</span></div>`;
+
+                    const marker = new google.maps.Marker({
+                        position: { lat: Number(stop.latitud), lng: Number(stop.longitud) },
+                        map,
+                        title: stop.nombre,
+                        icon: {
+                            path: googleMapsLibrary.SymbolPath.CIRCLE,
+                            fillColor: "#6366f1",
+                            fillOpacity: 1,
+                            strokeColor: "#ffffff",
+                            strokeWeight: 2,
+                            scale: 7
+                        }
+                    });
+
+                    marker.addListener("click", () => {
+                        infoWindow.setContent(`<strong>${stop.nombre}</strong><br>${stop.direccionReferencia || ""}`);
+                        infoWindow.open({ anchor: marker, map });
+                    });
+
+                    stopMarkers.push(marker);
+                });
+
+            document.getElementById("stopCount").textContent = route.rutaParaderos.length;
+            document.getElementById("controlCount").textContent = route.rutaPuntosControl.length;
+        }
+
+        async function renderRoute(route) {
+            const points = route.rutaPuntosControl
+                .slice()
+                .sort((a, b) => a.orden - b.orden);
+
+            if (points.length < 2) {
+                return;
+            }
+
+            const origin = { lat: Number(points[0].latitud), lng: Number(points[0].longitud) };
+            const destination = { lat: Number(points[points.length - 1].latitud), lng: Number(points[points.length - 1].longitud) };
+            const waypoints = points.slice(1, -1).map(point => ({
+                location: { lat: Number(point.latitud), lng: Number(point.longitud) },
+                stopover: false
+            }));
+
+            const directions = await directionsService.route({
+                origin,
+                destination,
+                waypoints,
+                optimizeWaypoints: false,
+                travelMode: googleMapsLibrary.TravelMode.DRIVING
+            });
+
+            directionsRenderer.setDirections(directions);
+
+            const leg = directions.routes?.[0]?.legs?.[0];
+            document.getElementById("etaValue").textContent = leg?.duration?.text || "--";
+        }
+
+        async function loadRouteDetails(routeId) {
+            const response = await fetch(`${apiBaseUrl}dashboard/route/${routeId}/details`);
+            activeRoute = await response.json();
+
+            clearVisuals();
+            renderStops(activeRoute);
+            await renderRoute(activeRoute);
+            await fetchActiveVehicles(routeId);
+        }
+
+        async function fetchActiveVehicles(routeId) {
+            const response = await fetch(`${apiBaseUrl}dashboard/active-vehicles`);
+            const vehicles = await response.json();
+
+            Object.values(busMarkers).forEach(marker => marker.setMap(null));
+            busMarkers = {};
+
+            let count = 0;
+            vehicles.forEach(vehicle => {
+                if (vehicle.idRuta !== routeId) {
+                    return;
+                }
+
+                const marker = new google.maps.Marker({
+                    position: { lat: Number(vehicle.latitud), lng: Number(vehicle.longitud) },
+                    map,
+                    title: vehicle.placa,
+                    icon: {
+                        path: googleMapsLibrary.SymbolPath.FORWARD_CLOSED_ARROW,
+                        fillColor: "#10b981",
+                        fillOpacity: 1,
+                        strokeColor: "#ffffff",
+                        strokeWeight: 2,
+                        scale: 6
+                    }
+                });
+
+                marker.addListener("click", () => {
+                    infoWindow.setContent(`
+                        <strong>${vehicle.placa}</strong><br>
+                        Ruta: ${vehicle.codigoRuta || "N/A"}<br>
+                        Conductor: ${vehicle.conductor || "N/A"}<br>
+                        Velocidad: ${vehicle.velocidadKmh || 0} km/h<br>
+                        Score: ${vehicle.scoreConduccion || 100}
+                    `);
+                    infoWindow.open({ anchor: marker, map });
+                });
+
+                busMarkers[vehicle.idVehiculo] = marker;
+                count += 1;
+            });
+
+            document.getElementById("busCount").textContent = count;
+        }
+
+        async function sendDemoTelemetry() {
+            const payload = {
+                imei: "IMEI88847294829",
+                latitud: -12.0464,
+                longitud: -77.0428,
+                velocidadKmh: 48.5,
+                rumboGrados: 180.0,
+                precisionMetros: 5.0,
+                eventoForzado: "NORMAL"
+            };
+
+            await fetch(`${apiBaseUrl}gps/telemetry`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+        }
+
+        function hookSignalR() {
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl(signalrUrl)
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("SendTelemetryUpdate", (vehicle) => {
+                if (!activeRoute || vehicle.idRuta !== activeRoute.idRuta) {
+                    return;
+                }
+
+                fetchActiveVehicles(activeRoute.idRuta);
+            });
+
+            connection.start().catch(() => {
+                console.warn("SignalR no pudo conectarse. Se puede usar la pagina igual.");
+            });
+        }
+
+        async function bootstrap() {
+            await initializeMap();
+            await fetchRoutes();
+            await sendDemoTelemetry();
+            hookSignalR();
+
+            document.getElementById("routeSelect").addEventListener("change", async (event) => {
+                const routeId = Number(event.target.value);
+                if (!routeId) {
+                    return;
+                }
+
+                await loadRouteDetails(routeId);
+            });
+        }
+
+        bootstrap().catch(error => {
+            console.error(error);
+            alert("No se pudo iniciar la pagina Google Maps. Revisa la consola.");
+        });
+    </script>
+</body>
+</html>

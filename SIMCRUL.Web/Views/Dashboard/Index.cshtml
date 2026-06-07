@@ -22,7 +22,7 @@
     </div>
 </div>
 
-<div class="dashboard-layout" style="max-width: 1400px; margin: 1.5rem auto; padding: 0 1.5rem; gap: 1.5rem; height: calc(100vh - 180px); grid-template-columns: 400px 1fr;">
+<div class="dashboard-layout dashboard-shell" style="height: calc(100vh - 180px); grid-template-columns: 400px 1fr;">
     <!-- Control Sidebar -->
     <div class="glass-card sidebar" style="overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem;">
         <div>
@@ -38,7 +38,7 @@
                     <label class="form-label">Hasta</label>
                     <input type="date" id="report-to" class="custom-input" />
                 </div>
-                <div style="display: flex; gap: 0.75rem;">
+                <div class="panel-actions">
                     <button onclick="downloadReport('pdf')" class="btn-primary" style="flex: 1; padding: 0.5rem; border-radius: 8px; font-size: 0.85rem; background: var(--secondary);">
                         <i class="fa-solid fa-file-pdf"></i> PDF
                     </button>
@@ -62,8 +62,8 @@
     </div>
 
     <!-- Live Map Map container -->
-    <div class="glass-card" style="padding: 1rem; position: relative;">
-        <div id="map" style="height: 100%; border-radius: 12px;"></div>
+    <div class="glass-card map-card">
+        <div id="map"></div>
     </div>
 </div>
 

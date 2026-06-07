@@ -341,3 +341,343 @@ input[type="date"].custom-input {
     from { opacity: 0; transform: scale(0.95); }
     to { opacity: 1; transform: scale(1); }
 }
+
+.page-shell {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+}
+
+.page-header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.page-filter-bar {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.page-filter-main {
+    flex: 1;
+    position: relative;
+}
+
+.page-filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.responsive-table-card {
+    overflow-x: auto;
+    padding: 1rem;
+}
+
+.responsive-table-card table {
+    width: 100%;
+    min-width: 780px;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.centered-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+    padding: 2rem 1.5rem;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 450px;
+    padding: 3rem;
+}
+
+.hero-actions {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.dashboard-shell {
+    max-width: 1400px;
+    margin: 1.5rem auto;
+    padding: 0 1.5rem;
+    gap: 1.5rem;
+}
+
+.map-card {
+    padding: 1rem;
+    position: relative;
+}
+
+.map-card #map {
+    height: 100%;
+    border-radius: 12px;
+}
+
+.panel-actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.panel-actions-end {
+    justify-content: flex-end;
+}
+
+.modal-card {
+    width: 100%;
+    max-width: 600px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.modal-card-lg {
+    max-width: 800px;
+    max-height: 90vh;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.75rem;
+}
+
+.modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.form-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.form-grid-split {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 1rem;
+}
+
+.form-grid-auto {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    border-top: 1px solid var(--border-color);
+    padding-top: 1rem;
+    margin-top: 0.5rem;
+}
+
+.audit-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    font-size: 0.85rem;
+    background: rgba(255,255,255,0.02);
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.info-row-top {
+    align-items: flex-start;
+}
+
+@media (max-width: 1024px) {
+    .custom-nav {
+        padding: 1rem 1.25rem;
+    }
+
+    .nav-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+
+    .nav-links {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.85rem 1rem;
+    }
+
+    .hero-section {
+        flex-direction: column;
+        margin: 2.5rem auto;
+        gap: 2rem;
+    }
+
+    .hero-title {
+        font-size: 2.8rem;
+    }
+
+    .dashboard-layout {
+        grid-template-columns: 1fr !important;
+        height: auto !important;
+        overflow: visible;
+    }
+
+    .dashboard-layout .sidebar {
+        max-height: none;
+    }
+
+    .map-card {
+        min-height: 60vh;
+    }
+}
+
+@media (max-width: 768px) {
+    body {
+        font-size: 15px;
+    }
+
+    .brand {
+        justify-content: center;
+        font-size: 1.35rem;
+    }
+
+    .nav-links {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .nav-links li,
+    .nav-links a,
+    .nav-links .btn-primary {
+        width: 100%;
+        text-align: center;
+    }
+
+    .page-shell,
+    .dashboard-shell,
+    .hero-section,
+    .centered-page {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .page-header-actions,
+    .page-filter-bar,
+    .panel-actions,
+    .modal-actions,
+    .hero-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .panel-actions-end {
+        justify-content: stretch;
+    }
+
+    .page-header-actions > *:last-child,
+    .panel-actions > *,
+    .modal-actions > * {
+        width: 100%;
+    }
+
+    .modal-actions > * {
+        width: 100% !important;
+    }
+
+    .page-filter-toggle {
+        justify-content: space-between;
+    }
+
+    .hero-title {
+        font-size: 2.2rem;
+    }
+
+    .hero-description {
+        font-size: 1rem;
+    }
+
+    .kpi-grid {
+        grid-template-columns: 1fr;
+        padding: 1rem;
+    }
+
+    .sidebar {
+        padding: 1rem;
+    }
+
+    .map-card {
+        min-height: 52vh;
+        padding: 0.75rem;
+    }
+
+    .modal-card,
+    .login-card {
+        padding: 1.35rem;
+    }
+
+    .form-grid-2,
+    .form-grid-3,
+    .form-grid-split,
+    .form-grid-auto,
+    .audit-detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .responsive-table-card {
+        padding: 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .custom-nav {
+        padding: 0.9rem 0.85rem;
+    }
+
+    .hero-title {
+        font-size: 1.9rem;
+    }
+
+    .hero-badge,
+    .btn-primary,
+    .custom-input {
+        font-size: 0.92rem;
+    }
+
+    .map-card {
+        min-height: 46vh;
+    }
+
+    .info-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

@@ -3,9 +3,9 @@
     ViewData["Title"] = "Mantenimiento de Vehículos";
 }
 
-<div style="max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem;">
+<div class="page-shell">
     <!-- Header Actions -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div class="page-header-actions">
         <div>
             <h1 style="font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
                 <i class="fa-solid fa-bus"></i> Mantenimiento de Vehículos
@@ -20,20 +20,20 @@
     </div>
 
     <!-- Filter Bar -->
-    <div class="glass-card" style="padding: 1rem; margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center;">
-        <div style="flex: 1; position: relative;">
+    <div class="glass-card page-filter-bar">
+        <div class="page-filter-main">
             <input type="text" id="search-input" onkeyup="filterTable()" class="custom-input" placeholder="Buscar por placa o código..." style="padding-left: 2.5rem;" />
             <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
         </div>
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <div class="page-filter-toggle">
             <label class="form-label" style="margin-bottom: 0; white-space: nowrap;">Mostrar inactivos</label>
             <input type="checkbox" id="show-deleted" onchange="fetchVehicles()" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);" />
         </div>
     </div>
 
     <!-- Table Container -->
-    <div class="glass-card" style="overflow-x: auto; padding: 1rem;">
-        <table id="vehicles-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+    <div class="glass-card responsive-table-card">
+        <table id="vehicles-table">
             <thead>
                 <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
                     <th style="padding: 1rem;">Código</th>
@@ -61,8 +61,8 @@
 
 <!-- Add/Edit Modal -->
 <div id="vehicle-modal" class="modal-overlay">
-    <div class="glass-card" style="width: 100%; max-width: 600px; padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+    <div class="glass-card modal-card">
+        <div class="modal-header">
             <h3 id="modal-title" style="font-size: 1.3rem; font-weight: 700; color: white;">
                 <i class="fa-solid fa-bus"></i> Agregar Vehículo
             </h3>
@@ -71,10 +71,10 @@
             </button>
         </div>
 
-        <form id="vehicle-form" onsubmit="saveVehicle(event)" style="display: flex; flex-direction: column; gap: 1.25rem;">
+        <form id="vehicle-form" onsubmit="saveVehicle(event)" class="modal-form">
             <input type="hidden" id="vehicle-id" name="idVehiculo" value="0" />
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-grid-2">
                 <div>
                     <label class="form-label">Placa *</label>
                     <input type="text" id="placa" name="placa" class="custom-input" placeholder="Ej: F3V-894" required />
@@ -85,7 +85,7 @@
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-grid-2">
                 <div>
                     <label class="form-label">Tipo de Vehículo *</label>
                     <select id="tipo-vehiculo" name="tipoVehiculo" class="custom-input" required>
@@ -101,7 +101,7 @@
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-grid-2">
                 <div>
                     <label class="form-label">Marca</label>
                     <input type="text" id="marca" name="marca" class="custom-input" placeholder="Ej: Toyota" />
@@ -112,7 +112,7 @@
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-grid-2">
                 <div>
                     <label class="form-label">Capacidad Pasajeros *</label>
                     <input type="number" id="capacidad" name="capacidadPasajeros" class="custom-input" min="1" required placeholder="Ej: 25" />
@@ -128,7 +128,7 @@
                 <label class="form-label" style="margin-bottom: 0; cursor: pointer;" for="estado">Vehículo Activo</label>
             </div>
 
-            <div style="display: flex; gap: 1rem; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 0.5rem;">
+            <div class="modal-actions">
                 <button type="button" onclick="closeModal()" class="custom-input" style="width: auto; padding: 0.6rem 1.5rem; background: rgba(255,255,255,0.05); color: white; cursor: pointer; border-radius: 8px;">
                     Cancelar
                 </button>
