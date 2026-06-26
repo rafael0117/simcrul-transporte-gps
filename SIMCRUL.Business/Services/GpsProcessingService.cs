@@ -1,7 +1,11 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SIMCRUL.Business.Hubs;
 using SIMCRUL.Business.Interfaces;
+using SIMCRUL.Business.Models;
+using SIMCRUL.Business.Security;
 using SIMCRUL.Common.Constants;
 using SIMCRUL.Common.DTOs.Telemetry;
 using SIMCRUL.Data.Context;
@@ -13,11 +17,22 @@ public class GpsProcessingService : IGpsProcessingService
 {
     private readonly ApplicationDbContext _context;
     private readonly IHubContext<GpsHub> _hubContext;
+    private readonly IEmailService _emailService;
+    private readonly PasswordRecoveryOptions _passwordRecoveryOptions;
+    private readonly ILogger<GpsProcessingService> _logger;
 
-    public GpsProcessingService(ApplicationDbContext context, IHubContext<GpsHub> hubContext)
+    public GpsProcessingService(
+        ApplicationDbContext context,
+        IHubContext<GpsHub> hubContext,
+        IEmailService emailService,
+        IOptions<PasswordRecoveryOptions> passwordRecoveryOptions,
+        ILogger<GpsProcessingService> logger)
     {
         _context = context;
         _hubContext = hubContext;
+        _emailService = emailService;
+        _passwordRecoveryOptions = passwordRecoveryOptions.Value;
+        _logger = logger;
     }
 
     public async Task ProcessTelemetryAsync(TelemetryDto telemetryDto, CancellationToken cancellationToken = default)
@@ -141,6 +156,7 @@ public class GpsProcessingService : IGpsProcessingService
                 Longitud = reading.Longitud,
                 Estado = "PENDIENTE"
             };
+            createdAlert.TipoAlerta = tipoVelocidad;
             
             _context.Alertas.Add(createdAlert);
             trip.ScoreConduccion = Math.Max(0, trip.ScoreConduccion - 5);
@@ -210,6 +226,7 @@ public class GpsProcessingService : IGpsProcessingService
                 Longitud = reading.Longitud,
                 Estado = "PENDIENTE"
             };
+            createdAlert.TipoAlerta = tipoDesvio;
             
             _context.Alertas.Add(createdAlert);
             trip.ScoreConduccion = Math.Max(0, trip.ScoreConduccion - 10);
@@ -236,6 +253,7 @@ public class GpsProcessingService : IGpsProcessingService
                 Longitud = reading.Longitud,
                 Estado = "PENDIENTE"
             };
+            createdAlert.TipoAlerta = tipoPanico;
             
             _context.Alertas.Add(createdAlert);
             trip.ScoreConduccion = Math.Max(0, trip.ScoreConduccion - 20);
@@ -284,6 +302,31 @@ public class GpsProcessingService : IGpsProcessingService
 
             // Broadcast alert detail to all dashboard users
             await _hubContext.Clients.All.SendAsync("SendAlertNotification", alertNotify, cancellationToken);
+
+            try
+            {
+                var recipients = await ResolveAlertRecipientsAsync(vehicle.IdEmpresa, cancellationToken);
+                await _emailService.SendAlertEmailAsync(
+                    new AlertEmailMessage
+                    {
+                        Recipients = recipients,
+                        AlertType = createdAlert.TipoAlerta.Nombre,
+                        Severity = createdAlert.TipoAlerta.NivelSeveridad,
+                        VehiclePlate = vehicle.Placa,
+                        VehicleCode = vehicle.CodigoInterno,
+                        RouteName = route.NombreRuta,
+                        DriverName = $"{assignment.Conductor.Nombres} {assignment.Conductor.Apellidos}",
+                        Description = createdAlert.Descripcion,
+                        Latitude = createdAlert.Latitud,
+                        Longitude = createdAlert.Longitud,
+                        AlertDateUtc = createdAlert.FechaAlerta
+                    },
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudo enviar el correo de alerta para la unidad {Placa}.", vehicle.Placa);
+            }
         }
     }
 
@@ -323,5 +366,38 @@ public class GpsProcessingService : IGpsProcessingService
     private static double ToRadians(double angle)
     {
         return (Math.PI / 180) * angle;
+    }
+
+    private async Task<IReadOnlyCollection<string>> ResolveAlertRecipientsAsync(int companyId, CancellationToken cancellationToken)
+    {
+        var recipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var configuredRecipient in _passwordRecoveryOptions.AlertRecipientEmails)
+        {
+            if (!string.IsNullOrWhiteSpace(configuredRecipient))
+            {
+                recipients.Add(configuredRecipient.Trim());
+            }
+        }
+
+        if (_passwordRecoveryOptions.SendAlertsToCompanyEmail)
+        {
+            var companyEmail = await _context.EmpresasTransporte
+                .Where(e => e.IdEmpresa == companyId)
+                .Select(e => e.Email)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(companyEmail))
+            {
+                recipients.Add(companyEmail.Trim());
+            }
+        }
+
+        if (recipients.Count == 0 && !string.IsNullOrWhiteSpace(_passwordRecoveryOptions.FromEmail))
+        {
+            recipients.Add(_passwordRecoveryOptions.FromEmail);
+        }
+
+        return recipients.ToArray();
     }
 }

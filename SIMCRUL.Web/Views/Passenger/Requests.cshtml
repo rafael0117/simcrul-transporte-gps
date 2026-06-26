@@ -1,0 +1,142 @@
+@model SIMCRUL.Web.Models.Passenger.PassengerRequestsPageViewModel
+@{
+    ViewData["Title"] = "Reclamos y Peticiones";
+}
+
+<div class="page-shell" style="max-width: 1320px; margin: 0 auto; padding: 2rem;">
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="glass-card" style="padding: 1rem 1.25rem; margin-bottom: 1.25rem; border-color: rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.12); color: #d1fae5;">
+            <i class="fa-solid fa-circle-check"></i> @successMessage
+        </div>
+    }
+
+    <div class="page-header-actions" style="margin-bottom: 1.5rem;">
+        <div>
+            <h1 style="font-size: 2rem; font-weight: 800; color: white;">
+                <i class="fa-solid fa-envelope-open-text"></i> Reclamos y Peticiones
+            </h1>
+            <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.35rem;">
+                Registra tus solicitudes y consulta el historial de atencion de tu cuenta.
+            </p>
+        </div>
+        <a asp-controller="Passenger" asp-action="DownloadRoutesPdf" class="btn-primary" style="padding: 0.75rem 1.1rem;">
+            <i class="fa-solid fa-file-pdf"></i> Descargar rutas PDF
+        </a>
+    </div>
+
+    <div class="dashboard-layout dashboard-shell" style="grid-template-columns: minmax(320px, 420px) 1fr; height: auto;">
+        <div class="glass-card" style="padding: 1.25rem;">
+            <h3 style="margin-bottom: 1rem; color: var(--primary);">Nueva solicitud</h3>
+            <form asp-action="CreateRequest" method="post" class="modal-form" style="gap: 1rem;">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" style="color: var(--danger); font-size: 0.9rem;"></div>
+
+                <div>
+                    <label asp-for="Form.TipoSolicitud" class="form-label">Tipo</label>
+                    <select asp-for="Form.TipoSolicitud" class="custom-input">
+                        <option value="RECLAMO">Reclamo</option>
+                        <option value="PETICION">Peticion</option>
+                    </select>
+                    <span asp-validation-for="Form.TipoSolicitud" style="color: var(--danger); font-size: 0.8rem; display: block; margin-top: 0.25rem;"></span>
+                </div>
+
+                <div>
+                    <label asp-for="Form.IdRuta" class="form-label">Ruta relacionada</label>
+                    <select asp-for="Form.IdRuta" class="custom-input">
+                        <option value="">Sin ruta especifica</option>
+                        @foreach (var route in Model.Routes)
+                        {
+                            <option value="@route.IdRuta">@route.CodigoRuta - @route.NombreRuta</option>
+                        }
+                    </select>
+                </div>
+
+                <div>
+                    <label asp-for="Form.Asunto" class="form-label">Asunto</label>
+                    <input asp-for="Form.Asunto" class="custom-input" placeholder="Resume tu solicitud" />
+                    <span asp-validation-for="Form.Asunto" style="color: var(--danger); font-size: 0.8rem; display: block; margin-top: 0.25rem;"></span>
+                </div>
+
+                <div>
+                    <label asp-for="Form.Descripcion" class="form-label">Descripcion</label>
+                    <textarea asp-for="Form.Descripcion" class="custom-input" rows="5" placeholder="Detalla lo sucedido o lo que deseas solicitar"></textarea>
+                    <span asp-validation-for="Form.Descripcion" style="color: var(--danger); font-size: 0.8rem; display: block; margin-top: 0.25rem;"></span>
+                </div>
+
+                <div class="form-grid-2">
+                    <div>
+                        <label asp-for="Form.EmailContacto" class="form-label">Correo de contacto</label>
+                        <input asp-for="Form.EmailContacto" class="custom-input" />
+                        <span asp-validation-for="Form.EmailContacto" style="color: var(--danger); font-size: 0.8rem; display: block; margin-top: 0.25rem;"></span>
+                    </div>
+                    <div>
+                        <label asp-for="Form.TelefonoContacto" class="form-label">Telefono de contacto</label>
+                        <input asp-for="Form.TelefonoContacto" class="custom-input" />
+                        <span asp-validation-for="Form.TelefonoContacto" style="color: var(--danger); font-size: 0.8rem; display: block; margin-top: 0.25rem;"></span>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary" style="width: 100%; padding: 0.85rem;">
+                    <i class="fa-solid fa-paper-plane"></i> Enviar solicitud
+                </button>
+            </form>
+        </div>
+
+        <div class="glass-card" style="padding: 1.25rem;">
+            <h3 style="margin-bottom: 1rem; color: var(--primary);">Historial</h3>
+
+            @if (!Model.Requests.Any())
+            {
+                <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                    Aun no tienes solicitudes registradas.
+                </div>
+            }
+            else
+            {
+                <div style="display: flex; flex-direction: column; gap: 0.9rem;">
+                    @foreach (var request in Model.Requests)
+                    {
+                        var stateColor = request.Estado == "PENDIENTE" ? "var(--warning)" : "var(--success)";
+                        <div class="glass-card" style="padding: 1rem; border-color: rgba(148, 163, 184, 0.18);">
+                            <div class="info-row" style="align-items: flex-start; gap: 1rem;">
+                                <div>
+                                    <div style="font-weight: 700; color: white;">@request.Asunto</div>
+                                    <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.2rem;">
+                                        @request.TipoSolicitud - @request.FechaRegistro.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                    </div>
+                                </div>
+                                <span class="status-badge" style="background: rgba(255,255,255,0.08); color: @stateColor; border: 1px solid rgba(255,255,255,0.08);">
+                                    @request.Estado
+                                </span>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(request.CodigoRuta))
+                            {
+                                <div style="margin-top: 0.65rem; font-size: 0.84rem; color: var(--secondary);">
+                                    <i class="fa-solid fa-route"></i> @request.CodigoRuta - @request.NombreRuta
+                                </div>
+                            }
+
+                            <div style="margin-top: 0.75rem; color: var(--text-secondary); line-height: 1.6;">
+                                @request.Descripcion
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(request.Respuesta))
+                            {
+                                <div style="margin-top: 0.85rem; padding: 0.85rem; border-radius: 10px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.16);">
+                                    <div style="font-size: 0.82rem; color: var(--success); font-weight: 700;">Respuesta</div>
+                                    <div style="margin-top: 0.35rem; color: var(--text-secondary); line-height: 1.5;">@request.Respuesta</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

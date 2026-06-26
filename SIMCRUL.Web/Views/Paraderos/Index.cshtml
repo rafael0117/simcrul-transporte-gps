@@ -1,0 +1,417 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    ViewData["Title"] = "Mantenimiento de Paraderos";
+}
+
+<div class="page-shell">
+    <div class="page-header-actions">
+        <div>
+            <h1 style="font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                <i class="fa-solid fa-location-dot"></i> Mantenimiento de Paraderos
+            </h1>
+            <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">
+                Registre paraderos y asiguelos opcionalmente a una ruta usando las tablas existentes de la base de datos.
+            </p>
+        </div>
+        <button onclick="openModal()" class="btn-primary">
+            <i class="fa-solid fa-plus"></i> Agregar Paradero
+        </button>
+    </div>
+
+    <div class="glass-card page-filter-bar">
+        <div class="page-filter-main">
+            <input type="text" id="search-input" onkeyup="filterTable()" class="custom-input" placeholder="Buscar por nombre, distrito o ruta..." style="padding-left: 2.5rem;" />
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+        </div>
+        <div class="page-filter-toggle">
+            <label class="form-label" style="margin-bottom: 0; white-space: nowrap;">Mostrar inactivos</label>
+            <input type="checkbox" id="show-deleted" onchange="fetchStops()" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);" />
+        </div>
+    </div>
+
+    <div class="glass-card responsive-table-card">
+        <table id="stops-table">
+            <thead>
+                <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <th style="padding: 1rem;">Paradero</th>
+                    <th style="padding: 1rem;">Distrito</th>
+                    <th style="padding: 1rem;">Ruta asignada</th>
+                    <th style="padding: 1rem; text-align: center;">Orden</th>
+                    <th style="padding: 1rem; text-align: center;">ETA desde inicio</th>
+                    <th style="padding: 1rem; text-align: center;">Estado</th>
+                    <th style="padding: 1rem; text-align: right;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="stops-list">
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block;"></i> Cargando paraderos...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="stop-modal" class="modal-overlay">
+    <div class="glass-card modal-card">
+        <div class="modal-header">
+            <h3 id="modal-title" style="font-size: 1.3rem; font-weight: 700; color: white;">
+                <i class="fa-solid fa-location-dot"></i> Agregar Paradero
+            </h3>
+            <button onclick="closeModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <form id="stop-form" onsubmit="saveStop(event)" class="modal-form">
+            <input type="hidden" id="stop-id" value="0" />
+
+            <div class="form-grid-2">
+                <div>
+                    <label class="form-label">Nombre *</label>
+                    <input type="text" id="nombre" class="custom-input" placeholder="Ej: Paradero Canada" required />
+                </div>
+                <div>
+                    <label class="form-label">Distrito *</label>
+                    <input type="text" id="distrito" class="custom-input" placeholder="Ej: La Victoria" required />
+                </div>
+            </div>
+
+            <div>
+                <label class="form-label">Direccion referencial</label>
+                <input type="text" id="direccion-referencia" class="custom-input" placeholder="Ej: Cruce con av. principal" />
+            </div>
+
+            <div class="form-grid-2">
+                <div>
+                    <label class="form-label">Latitud *</label>
+                    <input type="number" id="latitud" class="custom-input" step="0.000001" required />
+                </div>
+                <div>
+                    <label class="form-label">Longitud *</label>
+                    <input type="number" id="longitud" class="custom-input" step="0.000001" required />
+                </div>
+            </div>
+
+            <div class="glass-card" style="padding: 1rem; border-radius: 12px; background: rgba(6, 182, 212, 0.05); border-color: rgba(6, 182, 212, 0.18);">
+                <div style="font-weight: 700; color: white; margin-bottom: 0.85rem;">Asignacion opcional a ruta</div>
+                <div class="form-grid-3">
+                    <div>
+                        <label class="form-label">Ruta</label>
+                        <select id="id-ruta" class="custom-input">
+                            <option value="">Sin ruta asignada</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Orden en la ruta</label>
+                        <input type="number" id="orden" class="custom-input" min="1" placeholder="Ej: 3" />
+                    </div>
+                    <div>
+                        <label class="form-label">Tiempo desde inicio (min)</label>
+                        <input type="number" id="eta" class="custom-input" min="0" placeholder="Ej: 18" />
+                    </div>
+                </div>
+                <div style="margin-top: 0.65rem; font-size: 0.8rem; color: var(--text-muted);">
+                    Si no seleccionas ruta, el paradero se guarda igual y queda disponible para asignarlo despues.
+                </div>
+            </div>
+
+            <div id="estado-container" style="display: none; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" id="estado" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);" checked />
+                <label class="form-label" style="margin-bottom: 0; cursor: pointer;" for="estado">Paradero Activo</label>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" onclick="closeModal()" class="custom-input" style="width: auto; padding: 0.6rem 1.5rem; background: rgba(255,255,255,0.05); color: white; cursor: pointer; border-radius: 8px;">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary" style="border-radius: 8px; padding: 0.6rem 2rem;">
+                    Guardar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        #stops-table tbody tr {
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s;
+        }
+
+        #stops-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-active {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-inactive {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-action {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .btn-edit {
+            color: var(--primary);
+        }
+
+        .btn-edit:hover {
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        .btn-status {
+            color: var(--warning);
+        }
+
+        .btn-status:hover {
+            background: rgba(245, 158, 11, 0.1);
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        const apiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
+        const token = '@Context.Session.GetString("Token")';
+
+        let allStops = [];
+        let availableRoutes = [];
+
+        async function fetchRoutesForSelector() {
+            const res = await fetch(`${apiBaseUrl}rutas?includeDeleted=true`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!res.ok) {
+                return;
+            }
+
+            availableRoutes = await res.json();
+            const routeSelect = document.getElementById('id-ruta');
+            routeSelect.innerHTML = '<option value="">Sin ruta asignada</option>';
+
+            availableRoutes.forEach(route => {
+                routeSelect.innerHTML += `<option value="${route.idRuta}">${route.codigoRuta} - ${route.nombreRuta}${route.activa ? '' : ' (Inactiva)'}</option>`;
+            });
+        }
+
+        async function fetchStops() {
+            const showDeleted = document.getElementById('show-deleted').checked;
+            const tbody = document.getElementById('stops-list');
+
+            try {
+                const res = await fetch(`${apiBaseUrl}paraderos?includeDeleted=${showDeleted}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.ok) {
+                    allStops = await res.json();
+                    renderTable(allStops);
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--danger);">Error al cargar paraderos (${res.status}).</td></tr>`;
+                }
+            } catch (err) {
+                console.error(err);
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--danger);">Falla de conexion con la API.</td></tr>`;
+            }
+        }
+
+        function renderTable(list) {
+            const tbody = document.getElementById('stops-list');
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:3rem; color:var(--text-muted);">No se encontraron paraderos.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            list.forEach(stop => {
+                const routeLabel = stop.idRuta
+                    ? `${stop.codigoRuta || ''} - ${stop.nombreRuta || ''}${stop.rutaActiva === false ? ' (Inactiva)' : ''}`
+                    : 'Sin ruta asignada';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding:1rem;">
+                        <div style="font-weight:700;">${stop.nombre}</div>
+                        <div style="font-size:0.82rem; color:var(--text-muted);">${stop.direccionReferencia || 'Sin referencia'}</div>
+                    </td>
+                    <td style="padding:1rem;">${stop.distrito}</td>
+                    <td style="padding:1rem;">${routeLabel}</td>
+                    <td style="padding:1rem; text-align:center;">${stop.orden || '-'}</td>
+                    <td style="padding:1rem; text-align:center;">${stop.tiempoEstimadoDesdeInicioMin ?? '-'}</td>
+                    <td style="padding:1rem; text-align:center;">
+                        <span class="status-badge ${stop.activo ? 'status-active' : 'status-inactive'}">
+                            ${stop.activo ? 'Activo' : 'Inactivo'}
+                        </span>
+                    </td>
+                    <td style="padding:1rem; text-align:right;">
+                        <button onclick="editStop(${stop.idParadero})" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="toggleStopStatus(${stop.idParadero})" class="btn-action btn-status" title="${stop.activo ? 'Desactivar' : 'Activar'}"><i class="fa-solid ${stop.activo ? 'fa-toggle-off' : 'fa-toggle-on'}"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterTable() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            if (!query) {
+                renderTable(allStops);
+                return;
+            }
+
+            const filtered = allStops.filter(stop =>
+                stop.nombre.toLowerCase().includes(query) ||
+                stop.distrito.toLowerCase().includes(query) ||
+                (stop.codigoRuta && stop.codigoRuta.toLowerCase().includes(query)) ||
+                (stop.nombreRuta && stop.nombreRuta.toLowerCase().includes(query))
+            );
+            renderTable(filtered);
+        }
+
+        function openModal(isEdit = false) {
+            const modal = document.getElementById('stop-modal');
+            modal.classList.add('active');
+            document.getElementById('estado-container').style.display = isEdit ? 'flex' : 'none';
+            if (!isEdit) {
+                document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-location-dot"></i> Agregar Paradero';
+                document.getElementById('stop-form').reset();
+                document.getElementById('stop-id').value = '0';
+                document.getElementById('id-ruta').value = '';
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('stop-modal').classList.remove('active');
+        }
+
+        function editStop(id) {
+            const stop = allStops.find(item => item.idParadero === id);
+            if (!stop) {
+                return;
+            }
+
+            document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-location-dot"></i> Editar Paradero';
+            document.getElementById('stop-id').value = stop.idParadero;
+            document.getElementById('nombre').value = stop.nombre;
+            document.getElementById('direccion-referencia').value = stop.direccionReferencia || '';
+            document.getElementById('distrito').value = stop.distrito;
+            document.getElementById('latitud').value = stop.latitud;
+            document.getElementById('longitud').value = stop.longitud;
+            document.getElementById('id-ruta').value = stop.idRuta || '';
+            document.getElementById('orden').value = stop.orden || '';
+            document.getElementById('eta').value = stop.tiempoEstimadoDesdeInicioMin ?? '';
+            document.getElementById('estado').checked = stop.activo;
+
+            openModal(true);
+        }
+
+        async function saveStop(e) {
+            e.preventDefault();
+            const id = parseInt(document.getElementById('stop-id').value);
+            const routeValue = document.getElementById('id-ruta').value;
+
+            const payload = {
+                idParadero: id,
+                nombre: document.getElementById('nombre').value,
+                direccionReferencia: document.getElementById('direccion-referencia').value || null,
+                distrito: document.getElementById('distrito').value,
+                latitud: parseFloat(document.getElementById('latitud').value),
+                longitud: parseFloat(document.getElementById('longitud').value),
+                activo: id === 0 ? true : document.getElementById('estado').checked,
+                idRuta: routeValue ? parseInt(routeValue) : null,
+                orden: routeValue && document.getElementById('orden').value ? parseInt(document.getElementById('orden').value) : null,
+                tiempoEstimadoDesdeInicioMin: routeValue && document.getElementById('eta').value ? parseInt(document.getElementById('eta').value) : null
+            };
+
+            const method = id === 0 ? 'POST' : 'PUT';
+            const url = id === 0 ? `${apiBaseUrl}paraderos` : `${apiBaseUrl}paraderos/${id}`;
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    closeModal();
+                    await fetchStops();
+                } else {
+                    const err = await res.json();
+                    alert(`Error al guardar: ${err.message || 'Intente nuevamente'}`);
+                }
+            } catch (err) {
+                alert('Falla de conexion.');
+            }
+        }
+
+        async function toggleStopStatus(id) {
+            const stop = allStops.find(item => item.idParadero === id);
+            if (!stop) {
+                return;
+            }
+
+            const actionLabel = stop.activo ? 'desactivar' : 'activar';
+            if (!confirm(`¿Desea ${actionLabel} este paradero?`)) {
+                return;
+            }
+
+            const payload = {
+                ...stop,
+                activo: !stop.activo
+            };
+
+            try {
+                const res = await fetch(`${apiBaseUrl}paraderos/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    await fetchStops();
+                } else {
+                    alert('No se pudo actualizar el estado del paradero.');
+                }
+            } catch (err) {
+                alert('Falla de conexion.');
+            }
+        }
+
+        (async function initializePage() {
+            await fetchRoutesForSelector();
+            await fetchStops();
+        })();
+    </script>
+}

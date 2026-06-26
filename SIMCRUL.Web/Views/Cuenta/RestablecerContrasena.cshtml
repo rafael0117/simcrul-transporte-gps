@@ -1,0 +1,39 @@
+@model SIMCRUL.Common.DTOs.Auth.ResetPasswordRequestDto
+@{
+    ViewData["Title"] = "Restablecer Contraseña";
+}
+
+<div class="centered-page">
+    <div class="glass-card login-card">
+        <div style="text-align:center; margin-bottom:2rem;">
+            <i class="fa-solid fa-key" style="font-size:3rem; color:var(--primary); margin-bottom:1rem;"></i>
+            <h2>Restablecer contraseña</h2>
+            <p style="color: var(--text-secondary); font-size: 0.95rem;">Ingresa tu nueva contraseña para volver a acceder al sistema.</p>
+        </div>
+
+        <form asp-action="RestablecerContrasena" method="post" class="modal-form" style="gap:1.5rem;">
+            <div asp-validation-summary="ModelOnly" style="color: var(--danger); font-size: 0.9rem;"></div>
+            <input asp-for="Token" type="hidden" />
+
+            <div>
+                <label asp-for="NewPassword" class="form-label">Nueva contraseña</label>
+                <input asp-for="NewPassword" type="password" class="custom-input" autocomplete="new-password" placeholder="Minimo 6 caracteres" />
+                <span asp-validation-for="NewPassword" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem; display:block;"></span>
+            </div>
+
+            <div>
+                <label asp-for="ConfirmPassword" class="form-label">Confirmar contraseña</label>
+                <input asp-for="ConfirmPassword" type="password" class="custom-input" autocomplete="new-password" placeholder="Repite la contraseña" />
+                <span asp-validation-for="ConfirmPassword" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem; display:block;"></span>
+            </div>
+
+            <button type="submit" class="btn-primary" style="width:100%; padding:0.8rem; font-size:1rem; border-radius:12px;">
+                <i class="fa-solid fa-rotate"></i> Actualizar contraseña
+            </button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

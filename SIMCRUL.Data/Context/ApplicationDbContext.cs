@@ -44,10 +44,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<GpsLectura> GpsLecturas => Set<GpsLectura>();
     public DbSet<TipoAlerta> TiposAlerta => Set<TipoAlerta>();
     public DbSet<Alerta> Alertas => Set<Alerta>();
-    public DbSet<Pasajero> Pasajeros => Set<Pasajero>();
-    public DbSet<FavoritoPasajero> FavoritosPasajero => Set<FavoritoPasajero>();
-    public DbSet<ConsultaRuta> ConsultasRuta => Set<ConsultaRuta>();
     public DbSet<Auditoria> Auditorias => Set<Auditoria>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<SolicitudPasajero> SolicitudesPasajero => Set<SolicitudPasajero>();
 
     // Vistas keyless
     public DbSet<VwAlertaPendiente> VwAlertasPendientes => Set<VwAlertaPendiente>();
@@ -73,10 +72,9 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<GpsLectura>().ToTable("GPS_LECTURAS").HasKey(x => x.IdLectura);
         modelBuilder.Entity<TipoAlerta>().ToTable("TIPOS_ALERTA").HasKey(x => x.IdTipoAlerta);
         modelBuilder.Entity<Alerta>().ToTable("ALERTAS").HasKey(x => x.IdAlerta);
-        modelBuilder.Entity<Pasajero>().ToTable("PASAJEROS").HasKey(x => x.IdPasajero);
-        modelBuilder.Entity<FavoritoPasajero>().ToTable("FAVORITOS_PASAJERO").HasKey(x => x.IdFavorito);
-        modelBuilder.Entity<ConsultaRuta>().ToTable("CONSULTAS_RUTA").HasKey(x => x.IdConsulta);
         modelBuilder.Entity<Auditoria>().ToTable("AUDITORIA").HasKey(x => x.IdAuditoria);
+        modelBuilder.Entity<PasswordResetToken>().ToTable("PASSWORD_RESET_TOKENS").HasKey(x => x.IdPasswordResetToken);
+        modelBuilder.Entity<SolicitudPasajero>().ToTable("SOLICITUDES_PASAJERO").HasKey(x => x.IdSolicitudPasajero);
 
         // Vistas mapeadas
         modelBuilder.Entity<VwAlertaPendiente>().ToView("vw_AlertasPendientes").HasNoKey();
@@ -221,41 +219,23 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey(a => a.AtendidoPor)
             .OnDelete(DeleteBehavior.SetNull);
 
-        modelBuilder.Entity<FavoritoPasajero>()
-            .HasOne(f => f.Pasajero)
-            .WithMany(p => p.Favoritos)
-            .HasForeignKey(f => f.IdPasajero)
+        modelBuilder.Entity<PasswordResetToken>()
+            .HasOne(prt => prt.Usuario)
+            .WithMany()
+            .HasForeignKey(prt => prt.IdUsuario)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<FavoritoPasajero>()
-            .HasOne(f => f.Ruta)
-            .WithMany(r => r.Favoritos)
-            .HasForeignKey(f => f.IdRuta)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<FavoritoPasajero>()
-            .HasOne(f => f.ParaderoOrigen)
-            .WithMany(p => p.FavoritosOrigen)
-            .HasForeignKey(f => f.IdParaderoOrigen)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<FavoritoPasajero>()
-            .HasOne(f => f.ParaderoDestino)
-            .WithMany(p => p.FavoritosDestino)
-            .HasForeignKey(f => f.IdParaderoDestino)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<ConsultaRuta>()
-            .HasOne(cr => cr.Pasajero)
-            .WithMany(p => p.Consultas)
-            .HasForeignKey(cr => cr.IdPasajero)
+        modelBuilder.Entity<SolicitudPasajero>()
+            .HasOne(sp => sp.Usuario)
+            .WithMany()
+            .HasForeignKey(sp => sp.IdUsuario)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<ConsultaRuta>()
-            .HasOne(cr => cr.Ruta)
-            .WithMany(r => r.Consultas)
-            .HasForeignKey(cr => cr.IdRuta)
-            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SolicitudPasajero>()
+            .HasOne(sp => sp.Ruta)
+            .WithMany()
+            .HasForeignKey(sp => sp.IdRuta)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 
     private static string ToSnakeCase(string input)

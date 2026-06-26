@@ -2,10 +2,12 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using SIMCRUL.Business.Interfaces;
+using SIMCRUL.Business.Models;
 using SIMCRUL.Business.Security;
 using SIMCRUL.Common.DTOs.Auth;
 using SIMCRUL.Data.Context;
@@ -17,11 +19,19 @@ public class AuthService : IAuthService
 {
     private readonly ApplicationDbContext _context;
     private readonly JwtOptions _jwtOptions;
+    private readonly PasswordRecoveryOptions _passwordRecoveryOptions;
+    private readonly IEmailService _emailService;
 
-    public AuthService(ApplicationDbContext context, IOptions<JwtOptions> jwtOptions)
+    public AuthService(
+        ApplicationDbContext context,
+        IOptions<JwtOptions> jwtOptions,
+        IOptions<PasswordRecoveryOptions> passwordRecoveryOptions,
+        IEmailService emailService)
     {
         _context = context;
         _jwtOptions = jwtOptions.Value;
+        _passwordRecoveryOptions = passwordRecoveryOptions.Value;
+        _emailService = emailService;
     }
 
     public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
@@ -77,24 +87,82 @@ public class AuthService : IAuthService
         _context.Usuarios.Add(usuario);
         await _context.SaveChangesAsync(cancellationToken);
 
-        // If registering as Passenger, let's also create the passenger record
-        if (request.Rol == Common.Constants.Roles.Pasajero)
+        return GenerateAuthResponse(usuario);
+    }
+
+    public async Task RequestPasswordResetAsync(ForgotPasswordRequestDto request, string? requesterIp, CancellationToken cancellationToken = default)
+    {
+        var usuario = await _context.Usuarios
+            .FirstOrDefaultAsync(u => u.Email == request.Email && u.Activo, cancellationToken);
+
+        if (usuario == null)
         {
-            var pasajero = new Pasajero
-            {
-                Nombres = request.Nombres,
-                Apellidos = request.Apellidos,
-                Email = request.Email,
-                Telefono = request.Telefono,
-                DocumentoIdentidad = "00000000",
-                Activo = true,
-                FechaRegistro = DateTime.UtcNow
-            };
-            _context.Pasajeros.Add(pasajero);
-            await _context.SaveChangesAsync(cancellationToken);
+            return;
         }
 
-        return GenerateAuthResponse(usuario);
+        var activeTokens = await _context.PasswordResetTokens
+            .Where(t => t.IdUsuario == usuario.IdUsuario && t.UsedAtUtc == null)
+            .ToListAsync(cancellationToken);
+
+        foreach (var activeToken in activeTokens)
+        {
+            activeToken.UsedAtUtc = DateTime.UtcNow;
+        }
+
+        var rawToken = GenerateResetToken();
+        var expirationUtc = DateTime.UtcNow.AddMinutes(_passwordRecoveryOptions.TokenExpiryMinutes);
+
+        _context.PasswordResetTokens.Add(new PasswordResetToken
+        {
+            IdUsuario = usuario.IdUsuario,
+            TokenHash = ComputeHash(rawToken),
+            ExpirationUtc = expirationUtc,
+            RequestedByIp = requesterIp,
+            EmailSentTo = usuario.Email
+        });
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await _emailService.SendPasswordRecoveryEmailAsync(
+            new PasswordRecoveryEmailMessage
+            {
+                RecipientEmail = usuario.Email,
+                RecipientName = $"{usuario.Nombres} {usuario.Apellidos}".Trim(),
+                ResetUrl = BuildResetUrl(rawToken),
+                ExpirationUtc = expirationUtc
+            },
+            cancellationToken);
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var tokenHash = ComputeHash(request.Token);
+        var resetToken = await _context.PasswordResetTokens
+            .Include(t => t.Usuario)
+            .FirstOrDefaultAsync(t =>
+                t.TokenHash == tokenHash &&
+                t.UsedAtUtc == null &&
+                t.ExpirationUtc > DateTime.UtcNow,
+                cancellationToken);
+
+        if (resetToken == null)
+        {
+            throw new InvalidOperationException("El enlace de recuperacion no es valido o ya expiro.");
+        }
+
+        resetToken.Usuario.PasswordHash = ComputeHash(request.NewPassword);
+        resetToken.UsedAtUtc = DateTime.UtcNow;
+
+        var siblingTokens = await _context.PasswordResetTokens
+            .Where(t => t.IdUsuario == resetToken.IdUsuario && t.IdPasswordResetToken != resetToken.IdPasswordResetToken && t.UsedAtUtc == null)
+            .ToListAsync(cancellationToken);
+
+        foreach (var siblingToken in siblingTokens)
+        {
+            siblingToken.UsedAtUtc = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
     private AuthResponseDto GenerateAuthResponse(Usuario usuario)
@@ -145,5 +213,16 @@ public class AuthService : IAuthService
             builder.Append(b.ToString("x2"));
         }
         return builder.ToString();
+    }
+
+    private static string GenerateResetToken()
+    {
+        return WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(48));
+    }
+
+    private string BuildResetUrl(string rawToken)
+    {
+        var separator = _passwordRecoveryOptions.FrontendResetUrl.Contains('?') ? "&" : "?";
+        return $"{_passwordRecoveryOptions.FrontendResetUrl}{separator}token={Uri.EscapeDataString(rawToken)}";
     }
 }

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SIMCRUL.Business.Interfaces;
 
@@ -5,6 +6,7 @@ namespace SIMCRUL.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ReportController : ControllerBase
 {
     private readonly IReportService _reportService;
@@ -47,6 +49,20 @@ public class ReportController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "Error al generar reporte Excel.", details = ex.Message });
+        }
+    }
+
+    [HttpGet("routes-pdf")]
+    public async Task<IActionResult> DownloadRoutesPdf(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var pdfBytes = await _reportService.GenerateRoutesPdfReportAsync(cancellationToken);
+            return File(pdfBytes, "application/pdf", $"CatalogoRutas_{DateTime.Now:yyyyMMdd_HHmm}.pdf");
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error al generar el catalogo de rutas en PDF.", details = ex.Message });
         }
     }
 }

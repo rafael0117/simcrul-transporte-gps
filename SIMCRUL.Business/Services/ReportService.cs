@@ -229,4 +229,72 @@ public class ReportService : IReportService
         workbook.SaveAs(stream);
         return stream.ToArray();
     }
+
+    public async Task<byte[]> GenerateRoutesPdfReportAsync(CancellationToken cancellationToken = default)
+    {
+        var routes = await _context.Rutas
+            .Include(r => r.RutaParaderos.OrderBy(rp => rp.Orden))
+                .ThenInclude(rp => rp.Paradero)
+            .Where(r => r.Activa)
+            .OrderBy(r => r.CodigoRuta)
+            .ToListAsync(cancellationToken);
+
+        var document = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(1.5f, Unit.Centimetre);
+                page.PageColor(Colors.White);
+                page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Helvetica"));
+
+                page.Header().Column(column =>
+                {
+                    column.Item().Text("SIMCRUL - CATALOGO DE RUTAS PARA PASAJEROS")
+                        .Bold().FontSize(16).FontColor("#1A365D");
+                    column.Item().Text($"Generado el {DateTime.Now:dd/MM/yyyy HH:mm}")
+                        .FontSize(9).FontColor("#718096");
+                });
+
+                page.Content().PaddingVertical(0.8f, Unit.Centimetre).Column(column =>
+                {
+                    foreach (var route in routes)
+                    {
+                        column.Item().PaddingBottom(12).Border(1).BorderColor("#D9E2EC").Padding(12).Column(routeColumn =>
+                        {
+                            routeColumn.Item().Text($"{route.CodigoRuta} - {route.NombreRuta}")
+                                .Bold().FontSize(13).FontColor("#0F4C81");
+                            routeColumn.Item().PaddingTop(4).Text($"Origen: {route.Origen} | Destino: {route.Destino}");
+                            routeColumn.Item().Text($"Distancia: {route.DistanciaKm} km | Tiempo estimado: {route.TiempoEstimadoMin} min | Velocidad maxima: {route.VelocidadMaximaKmh} km/h");
+
+                            var stops = route.RutaParaderos
+                                .OrderBy(rp => rp.Orden)
+                                .Select(rp => $"{rp.Orden}. {rp.Paradero.Nombre} ({rp.TiempoEstimadoDesdeInicioMin} min)")
+                                .ToList();
+
+                            routeColumn.Item().PaddingTop(6).Text("Paraderos principales:")
+                                .Bold().FontColor("#1F2937");
+
+                            foreach (var stop in stops)
+                            {
+                                routeColumn.Item().PaddingLeft(8).Text($"- {stop}");
+                            }
+                        });
+                    }
+                });
+
+                page.Footer().AlignRight().Text(text =>
+                {
+                    text.Span("Pagina ").FontSize(8).FontColor("#A0AEC0");
+                    text.CurrentPageNumber().FontSize(8).FontColor("#A0AEC0");
+                    text.Span(" de ").FontSize(8).FontColor("#A0AEC0");
+                    text.TotalPages().FontSize(8).FontColor("#A0AEC0");
+                });
+            });
+        });
+
+        using var stream = new MemoryStream();
+        document.GeneratePdf(stream);
+        return stream.ToArray();
+    }
 }

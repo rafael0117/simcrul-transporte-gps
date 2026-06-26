@@ -4,14 +4,13 @@
 }
 
 <div class="page-shell">
-    <!-- Header Actions -->
     <div class="page-header-actions">
         <div>
             <h1 style="font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
                 <i class="fa-solid fa-id-card"></i> Mantenimiento de Conductores
             </h1>
             <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">
-                Gestione los conductores asignados a la operación de la flota.
+                Gestione los conductores asignados a la operacion de la flota.
             </p>
         </div>
         <button onclick="openModal()" class="btn-primary">
@@ -19,7 +18,6 @@
         </button>
     </div>
 
-    <!-- Filter Bar -->
     <div class="glass-card page-filter-bar">
         <div class="page-filter-main">
             <input type="text" id="search-input" onkeyup="filterTable()" class="custom-input" placeholder="Buscar por nombres, apellidos o DNI..." style="padding-left: 2.5rem;" />
@@ -31,7 +29,6 @@
         </div>
     </div>
 
-    <!-- Table Container -->
     <div class="glass-card responsive-table-card">
         <table id="drivers-table">
             <thead>
@@ -39,15 +36,14 @@
                     <th style="padding: 1rem;">Nombre Completo</th>
                     <th style="padding: 1rem;">DNI</th>
                     <th style="padding: 1rem;">Licencia</th>
-                    <th style="padding: 1rem; text-align: center;">Categoría</th>
+                    <th style="padding: 1rem; text-align: center;">Categoria</th>
                     <th style="padding: 1rem; text-align: center;">Vence Licencia</th>
-                    <th style="padding: 1rem; text-align: center;">Teléfono</th>
+                    <th style="padding: 1rem; text-align: center;">Telefono</th>
                     <th style="padding: 1rem; text-align: center;">Estado</th>
                     <th style="padding: 1rem; text-align: right;">Acciones</th>
                 </tr>
             </thead>
             <tbody id="drivers-list">
-                <!-- Rendered dynamically -->
                 <tr>
                     <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                         <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block;"></i> Cargando conductores...
@@ -58,7 +54,6 @@
     </div>
 </div>
 
-<!-- Add/Edit Modal -->
 <div id="driver-modal" class="modal-overlay">
     <div class="glass-card modal-card">
         <div class="modal-header">
@@ -71,48 +66,48 @@
         </div>
 
         <form id="driver-form" onsubmit="saveDriver(event)" class="modal-form">
-            <input type="hidden" id="driver-id" name="idConductor" value="0" />
+            <input type="hidden" id="driver-id" value="0" />
 
             <div class="form-grid-2">
                 <div>
                     <label class="form-label">Nombres *</label>
-                    <input type="text" id="nombres" name="nombres" class="custom-input" placeholder="Ej: Carlos Daniel" required />
+                    <input type="text" id="nombres" class="custom-input" placeholder="Ej: Carlos Daniel" required />
                 </div>
                 <div>
                     <label class="form-label">Apellidos *</label>
-                    <input type="text" id="apellidos" name="apellidos" class="custom-input" placeholder="Ej: Mendoza Flores" required />
+                    <input type="text" id="apellidos" class="custom-input" placeholder="Ej: Mendoza Flores" required />
                 </div>
             </div>
 
             <div class="form-grid-2">
                 <div>
                     <label class="form-label">DNI *</label>
-                    <input type="text" id="dni" name="dni" class="custom-input" max-length="8" placeholder="Ej: 72849284" required />
+                    <input type="text" id="dni" class="custom-input" max-length="8" placeholder="Ej: 72849284" required />
                 </div>
                 <div>
-                    <label class="form-label">Teléfono</label>
-                    <input type="text" id="telefono" name="telefono" class="custom-input" placeholder="Ej: 988776655" />
+                    <label class="form-label">Telefono</label>
+                    <input type="text" id="telefono" class="custom-input" placeholder="Ej: 988776655" />
                 </div>
             </div>
 
             <div class="form-grid-split">
                 <div>
-                    <label class="form-label">Número de Licencia *</label>
-                    <input type="text" id="num-licencia" name="numeroLicencia" class="custom-input" placeholder="Ej: Q72849284" required />
+                    <label class="form-label">Numero de Licencia *</label>
+                    <input type="text" id="num-licencia" class="custom-input" placeholder="Ej: Q72849284" required />
                 </div>
                 <div>
-                    <label class="form-label">Categoría Licencia *</label>
-                    <input type="text" id="cat-licencia" name="categoriaLicencia" class="custom-input" placeholder="Ej: A-IIIa" required />
+                    <label class="form-label">Categoria Licencia *</label>
+                    <input type="text" id="cat-licencia" class="custom-input" placeholder="Ej: A-IIIA" required />
                 </div>
             </div>
 
             <div>
                 <label class="form-label">Fecha Vencimiento Licencia *</label>
-                <input type="date" id="vence-licencia" name="fechaVencimientoLicencia" class="custom-input" required />
+                <input type="date" id="vence-licencia" class="custom-input" required />
             </div>
 
             <div id="estado-container" style="display: none; align-items: center; gap: 0.5rem;">
-                <input type="checkbox" id="estado" name="estado" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);" checked />
+                <input type="checkbox" id="estado" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);" checked />
                 <label class="form-label" style="margin-bottom: 0; cursor: pointer;" for="estado">Conductor Activo</label>
             </div>
 
@@ -134,9 +129,11 @@
             border-bottom: 1px solid var(--border-color);
             transition: background 0.2s;
         }
+
         #drivers-table tbody tr:hover {
             background: rgba(255, 255, 255, 0.02);
         }
+
         .status-badge {
             padding: 0.25rem 0.6rem;
             border-radius: 9999px;
@@ -144,16 +141,19 @@
             font-weight: 600;
             display: inline-block;
         }
+
         .status-active {
             background: rgba(16, 185, 129, 0.15);
             color: var(--success);
             border: 1px solid rgba(16, 185, 129, 0.3);
         }
+
         .status-inactive {
             background: rgba(239, 68, 68, 0.15);
             color: var(--danger);
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
+
         .btn-action {
             background: none;
             border: none;
@@ -163,17 +163,21 @@
             font-size: 0.9rem;
             transition: all 0.2s;
         }
+
         .btn-edit {
             color: var(--primary);
         }
+
         .btn-edit:hover {
             background: rgba(6, 182, 212, 0.1);
         }
-        .btn-delete {
-            color: var(--danger);
+
+        .btn-status {
+            color: var(--warning);
         }
-        .btn-delete:hover {
-            background: rgba(239, 68, 68, 0.1);
+
+        .btn-status:hover {
+            background: rgba(245, 158, 11, 0.1);
         }
     </style>
 }
@@ -188,12 +192,12 @@
         async function fetchDrivers() {
             const showDeleted = document.getElementById('show-deleted').checked;
             const tbody = document.getElementById('drivers-list');
-            
+
             try {
                 const res = await fetch(`${apiBaseUrl}conductores?includeDeleted=${showDeleted}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
+
                 if (res.ok) {
                     allDrivers = await res.json();
                     renderTable(allDrivers);
@@ -202,7 +206,7 @@
                 }
             } catch (err) {
                 console.error(err);
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--danger);">Falla de conexión con la API.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--danger);">Falla de conexion con la API.</td></tr>`;
             }
         }
 
@@ -214,24 +218,24 @@
             }
 
             tbody.innerHTML = '';
-            list.forEach(c => {
-                const venceDate = new Date(c.fechaVencimientoLicencia).toLocaleDateString('es-PE');
+            list.forEach(driver => {
+                const venceDate = new Date(driver.fechaVencimientoLicencia).toLocaleDateString('es-PE');
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td style="padding:1rem; font-weight:700;">${c.nombres} ${c.apellidos}</td>
-                    <td style="padding:1rem;">${c.dni}</td>
-                    <td style="padding:1rem; font-family:monospace; color:var(--text-secondary);">${c.numeroLicencia}</td>
-                    <td style="padding:1rem; text-align:center;"><span style="font-size:0.85rem; background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:4px;">${c.categoriaLicencia}</span></td>
+                    <td style="padding:1rem; font-weight:700;">${driver.nombres} ${driver.apellidos}</td>
+                    <td style="padding:1rem;">${driver.dni}</td>
+                    <td style="padding:1rem; font-family:monospace; color:var(--text-secondary);">${driver.numeroLicencia}</td>
+                    <td style="padding:1rem; text-align:center;"><span style="font-size:0.85rem; background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:4px;">${driver.categoriaLicencia}</span></td>
                     <td style="padding:1rem; text-align:center;">${venceDate}</td>
-                    <td style="padding:1rem; text-align:center;">${c.telefono || '-'}</td>
+                    <td style="padding:1rem; text-align:center;">${driver.telefono || '-'}</td>
                     <td style="padding:1rem; text-align:center;">
-                        <span class="status-badge ${c.estado ? 'status-active' : 'status-inactive'}">
-                            ${c.estado ? 'Activo' : 'Inactivo'}
+                        <span class="status-badge ${driver.estado ? 'status-active' : 'status-inactive'}">
+                            ${driver.estado ? 'Activo' : 'Inactivo'}
                         </span>
                     </td>
                     <td style="padding:1rem; text-align:right;">
-                        <button onclick="editDriver(${c.idConductor})" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
-                        ${c.estado ? `<button onclick="deleteDriver(${c.idConductor})" class="btn-action btn-delete" title="Desactivar"><i class="fa-solid fa-trash"></i></button>` : ''}
+                        <button onclick="editDriver(${driver.idConductor})" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="toggleDriverStatus(${driver.idConductor})" class="btn-action btn-status" title="${driver.estado ? 'Desactivar' : 'Activar'}"><i class="fa-solid ${driver.estado ? 'fa-toggle-off' : 'fa-toggle-on'}"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -245,12 +249,13 @@
                 return;
             }
 
-            const filtered = allDrivers.filter(c => 
-                c.nombres.toLowerCase().includes(query) || 
-                c.apellidos.toLowerCase().includes(query) || 
-                c.dni.includes(query) || 
-                c.numeroLicencia.toLowerCase().includes(query)
+            const filtered = allDrivers.filter(driver =>
+                driver.nombres.toLowerCase().includes(query) ||
+                driver.apellidos.toLowerCase().includes(query) ||
+                driver.dni.includes(query) ||
+                driver.numeroLicencia.toLowerCase().includes(query)
             );
+
             renderTable(filtered);
         }
 
@@ -258,10 +263,12 @@
             const modal = document.getElementById('driver-modal');
             modal.classList.add('active');
             document.getElementById('estado-container').style.display = isEdit ? 'flex' : 'none';
+
             if (!isEdit) {
                 document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-id-card"></i> Agregar Conductor';
                 document.getElementById('driver-form').reset();
-                document.getElementById('driver-id').value = "0";
+                document.getElementById('driver-id').value = '0';
+                document.getElementById('estado').checked = true;
             }
         }
 
@@ -269,24 +276,22 @@
             document.getElementById('driver-modal').classList.remove('active');
         }
 
-        async function editDriver(id) {
-            const c = allDrivers.find(item => item.idConductor === id);
-            if (!c) return;
+        function editDriver(id) {
+            const driver = allDrivers.find(item => item.idConductor === id);
+            if (!driver) {
+                return;
+            }
 
             document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-id-card"></i> Editar Conductor';
-            document.getElementById('driver-id').value = c.idConductor;
-            document.getElementById('nombres').value = c.nombres;
-            document.getElementById('apellidos').value = c.apellidos;
-            document.getElementById('dni').value = c.dni;
-            document.getElementById('telefono').value = c.telefono || '';
-            document.getElementById('num-licencia').value = c.numeroLicencia;
-            document.getElementById('cat-licencia').value = c.categoriaLicencia;
-            
-            // Format date for HTML input type="date" (YYYY-MM-DD)
-            const d = new Date(c.fechaVencimientoLicencia);
-            const formattedDate = d.toISOString().split('T')[0];
-            document.getElementById('vence-licencia').value = formattedDate;
-            document.getElementById('estado').checked = c.estado;
+            document.getElementById('driver-id').value = driver.idConductor;
+            document.getElementById('nombres').value = driver.nombres;
+            document.getElementById('apellidos').value = driver.apellidos;
+            document.getElementById('dni').value = driver.dni;
+            document.getElementById('telefono').value = driver.telefono || '';
+            document.getElementById('num-licencia').value = driver.numeroLicencia;
+            document.getElementById('cat-licencia').value = driver.categoriaLicencia;
+            document.getElementById('vence-licencia').value = new Date(driver.fechaVencimientoLicencia).toISOString().split('T')[0];
+            document.getElementById('estado').checked = driver.estado;
 
             openModal(true);
         }
@@ -294,7 +299,7 @@
         async function saveDriver(e) {
             e.preventDefault();
             const id = parseInt(document.getElementById('driver-id').value);
-            
+
             const payload = {
                 idConductor: id,
                 nombres: document.getElementById('nombres').value,
@@ -328,30 +333,45 @@
                     alert(`Error al guardar: ${err.message || 'Intente nuevamente'}`);
                 }
             } catch (err) {
-                alert("Falla de conexión.");
+                alert('Falla de conexion.');
             }
         }
 
-        async function deleteDriver(id) {
-            if (!confirm("¿Está seguro que desea desactivar (Soft Delete) este conductor?")) return;
+        async function toggleDriverStatus(id) {
+            const driver = allDrivers.find(item => item.idConductor === id);
+            if (!driver) {
+                return;
+            }
+
+            const action = driver.estado ? 'desactivar' : 'activar';
+            if (!confirm(`Estas seguro que desea ${action} este conductor?`)) {
+                return;
+            }
 
             try {
                 const res = await fetch(`${apiBaseUrl}conductores/${id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ...driver,
+                        estado: !driver.estado
+                    })
                 });
 
                 if (res.ok) {
                     fetchDrivers();
                 } else {
-                    alert("Error al desactivar el conductor.");
+                    const err = await res.json();
+                    alert(`Error al actualizar el estado: ${err.message || 'Intente nuevamente'}`);
                 }
             } catch (err) {
-                alert("Falla de conexión.");
+                alert('Falla de conexion.');
             }
         }
 
-        // Init load
         fetchDrivers();
     </script>
 }

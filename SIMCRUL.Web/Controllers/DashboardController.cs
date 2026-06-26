@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SIMCRUL.Web.Infrastructure;
 using SIMCRUL.Web.Services;
 
 namespace SIMCRUL.Web.Controllers;
@@ -14,25 +15,35 @@ public class DashboardController : Controller
 
     private bool IsAuthorized()
     {
-        return HttpContext.Session.GetString("Token") != null;
+        return SessionAuthHelper.IsOperatorAuthenticated(HttpContext.Session);
+    }
+
+    private IActionResult RedirectUnauthorized()
+    {
+        if (SessionAuthHelper.IsPassengerAuthenticated(HttpContext.Session))
+        {
+            return RedirectToAction("Index", "Passenger");
+        }
+
+        return RedirectToAction("Login", "Home");
     }
 
     public IActionResult Index()
     {
-        if (!IsAuthorized()) return RedirectToAction("Login", "Home");
+        if (!IsAuthorized()) return RedirectUnauthorized();
         return View();
     }
 
     public IActionResult Simulator()
     {
-        if (!IsAuthorized()) return RedirectToAction("Login", "Home");
+        if (!IsAuthorized()) return RedirectUnauthorized();
         return View();
     }
 
     [HttpGet]
     public async Task<IActionResult> DownloadPdf(DateTime? dateFrom, DateTime? dateTo)
     {
-        if (!IsAuthorized()) return RedirectToAction("Login", "Home");
+        if (!IsAuthorized()) return RedirectUnauthorized();
 
         var fromStr = dateFrom?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd");
         var toStr = dateTo?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd");
@@ -46,7 +57,7 @@ public class DashboardController : Controller
     [HttpGet]
     public async Task<IActionResult> DownloadExcel(DateTime? dateFrom, DateTime? dateTo)
     {
-        if (!IsAuthorized()) return RedirectToAction("Login", "Home");
+        if (!IsAuthorized()) return RedirectUnauthorized();
 
         var fromStr = dateFrom?.ToString("yyyy-MM-dd") ?? DateTime.Today.AddDays(-7).ToString("yyyy-MM-dd");
         var toStr = dateTo?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd");

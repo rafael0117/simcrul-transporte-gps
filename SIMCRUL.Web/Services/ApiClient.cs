@@ -24,6 +24,10 @@ public class ApiClient
         {
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
+        else
+        {
+            _httpClient.DefaultRequestHeaders.Authorization = null;
+        }
     }
 
     public async Task<T?> GetAsync<T>(string uri)

@@ -1,0 +1,43 @@
+@model SIMCRUL.Common.DTOs.Auth.ForgotPasswordRequestDto
+@{
+    ViewData["Title"] = "Recuperar Contraseña";
+}
+
+<div class="centered-page">
+    <div class="glass-card login-card">
+        <div style="text-align:center; margin-bottom:2rem;">
+            <i class="fa-solid fa-envelope-circle-check" style="font-size:3rem; color:var(--primary); margin-bottom:1rem;"></i>
+            <h2>Recuperar contraseña</h2>
+            <p style="color: var(--text-secondary); font-size: 0.95rem;">Te enviaremos un enlace de restablecimiento a tu correo.</p>
+        </div>
+
+        @if (TempData["SuccessMessage"] is string successMessage)
+        {
+            <div class="alert alert-success" style="border-radius:12px;">@successMessage</div>
+        }
+
+        <form asp-action="OlvidoContrasena" method="post" class="modal-form" style="gap:1.5rem;">
+            <div asp-validation-summary="ModelOnly" style="color: var(--danger); font-size: 0.9rem;"></div>
+
+            <div>
+                <label asp-for="Email" class="form-label">Correo electrónico</label>
+                <input asp-for="Email" class="custom-input" autocomplete="email" placeholder="usuario@correo.com" />
+                <span asp-validation-for="Email" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem; display:block;"></span>
+            </div>
+
+            <button type="submit" class="btn-primary" style="width:100%; padding:0.8rem; font-size:1rem; border-radius:12px;">
+                <i class="fa-solid fa-paper-plane"></i> Enviar enlace
+            </button>
+        </form>
+
+        <div style="margin-top:1rem; text-align:center;">
+            <a asp-controller="Home" asp-action="Login" style="color:var(--primary); font-weight:600; text-decoration:none;">
+                <i class="fa-solid fa-arrow-left"></i> Volver al login
+            </a>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -4,7 +4,6 @@
 }
 
 <div class="page-shell">
-    <!-- Header Actions -->
     <div class="page-header-actions">
         <div>
             <h1 style="font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
@@ -19,10 +18,9 @@
         </button>
     </div>
 
-    <!-- Filter Bar -->
     <div class="glass-card page-filter-bar">
         <div class="page-filter-main">
-            <input type="text" id="search-input" onkeyup="filterTable()" class="custom-input" placeholder="Buscar por código, nombre o terminales..." style="padding-left: 2.5rem;" />
+            <input type="text" id="search-input" onkeyup="filterTable()" class="custom-input" placeholder="Buscar por codigo, nombre o terminales..." style="padding-left: 2.5rem;" />
             <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
         </div>
         <div class="page-filter-toggle">
@@ -31,24 +29,22 @@
         </div>
     </div>
 
-    <!-- Table Container -->
     <div class="glass-card responsive-table-card">
         <table id="routes-table">
             <thead>
                 <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                    <th style="padding: 1rem;">Código</th>
+                    <th style="padding: 1rem;">Codigo</th>
                     <th style="padding: 1rem;">Nombre de Ruta</th>
                     <th style="padding: 1rem;">Origen (Terminal A)</th>
                     <th style="padding: 1rem;">Destino (Terminal B)</th>
                     <th style="padding: 1rem; text-align: center;">Distancia</th>
                     <th style="padding: 1rem; text-align: center;">Tiempo Est.</th>
-                    <th style="padding: 1rem; text-align: center;">V. Límite</th>
+                    <th style="padding: 1rem; text-align: center;">V. Limite</th>
                     <th style="padding: 1rem; text-align: center;">Estado</th>
                     <th style="padding: 1rem; text-align: right;">Acciones</th>
                 </tr>
             </thead>
             <tbody id="routes-list">
-                <!-- Rendered dynamically -->
                 <tr>
                     <td colspan="9" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                         <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block;"></i> Cargando rutas...
@@ -59,7 +55,6 @@
     </div>
 </div>
 
-<!-- Add/Edit Modal -->
 <div id="route-modal" class="modal-overlay">
     <div class="glass-card modal-card">
         <div class="modal-header">
@@ -76,7 +71,7 @@
 
             <div class="form-grid-2">
                 <div>
-                    <label class="form-label">Código Ruta *</label>
+                    <label class="form-label">Codigo Ruta *</label>
                     <input type="text" id="codigo-ruta" name="codigoRuta" class="custom-input" placeholder="Ej: R01" required />
                 </div>
                 <div>
@@ -106,7 +101,7 @@
                     <input type="number" id="tiempo-est" name="tiempoEstimadoMin" class="custom-input" min="1" placeholder="Ej: 75" required />
                 </div>
                 <div>
-                    <label class="form-label">Límite Vel. (km/h) *</label>
+                    <label class="form-label">Limite Vel. (km/h) *</label>
                     <input type="number" id="velocidad-max" name="velocidadMaximaKmh" class="custom-input" min="10" placeholder="Ej: 60" required />
                 </div>
             </div>
@@ -134,9 +129,11 @@
             border-bottom: 1px solid var(--border-color);
             transition: background 0.2s;
         }
+
         #routes-table tbody tr:hover {
             background: rgba(255, 255, 255, 0.02);
         }
+
         .status-badge {
             padding: 0.25rem 0.6rem;
             border-radius: 9999px;
@@ -144,16 +141,19 @@
             font-weight: 600;
             display: inline-block;
         }
+
         .status-active {
             background: rgba(16, 185, 129, 0.15);
             color: var(--success);
             border: 1px solid rgba(16, 185, 129, 0.3);
         }
+
         .status-inactive {
             background: rgba(239, 68, 68, 0.15);
             color: var(--danger);
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
+
         .btn-action {
             background: none;
             border: none;
@@ -163,17 +163,21 @@
             font-size: 0.9rem;
             transition: all 0.2s;
         }
+
         .btn-edit {
             color: var(--primary);
         }
+
         .btn-edit:hover {
             background: rgba(6, 182, 212, 0.1);
         }
-        .btn-delete {
-            color: var(--danger);
+
+        .btn-status {
+            color: var(--warning);
         }
-        .btn-delete:hover {
-            background: rgba(239, 68, 68, 0.1);
+
+        .btn-status:hover {
+            background: rgba(245, 158, 11, 0.1);
         }
     </style>
 }
@@ -188,12 +192,12 @@
         async function fetchRoutes() {
             const showDeleted = document.getElementById('show-deleted').checked;
             const tbody = document.getElementById('routes-list');
-            
+
             try {
                 const res = await fetch(`${apiBaseUrl}rutas?includeDeleted=${showDeleted}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
+
                 if (res.ok) {
                     allRoutes = await res.json();
                     renderTable(allRoutes);
@@ -202,7 +206,7 @@
                 }
             } catch (err) {
                 console.error(err);
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--danger);">Falla de conexión con la API.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--danger);">Falla de conexion con la API.</td></tr>`;
             }
         }
 
@@ -214,24 +218,24 @@
             }
 
             tbody.innerHTML = '';
-            list.forEach(r => {
+            list.forEach(route => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td style="padding:1rem; font-weight:600; color:var(--primary);">${r.codigoRuta}</td>
-                    <td style="padding:1rem; font-weight:700;">${r.nombreRuta}</td>
-                    <td style="padding:1rem;">${r.origen}</td>
-                    <td style="padding:1rem;">${r.destino}</td>
-                    <td style="padding:1rem; text-align:center;">${r.distanciaKm} km</td>
-                    <td style="padding:1rem; text-align:center;">${r.tiempoEstimadoMin} min</td>
-                    <td style="padding:1rem; text-align:center; color:var(--warning); font-weight:600;">${r.velocidadMaximaKmh} km/h</td>
+                    <td style="padding:1rem; font-weight:600; color:var(--primary);">${route.codigoRuta}</td>
+                    <td style="padding:1rem; font-weight:700;">${route.nombreRuta}</td>
+                    <td style="padding:1rem;">${route.origen}</td>
+                    <td style="padding:1rem;">${route.destino}</td>
+                    <td style="padding:1rem; text-align:center;">${route.distanciaKm} km</td>
+                    <td style="padding:1rem; text-align:center;">${route.tiempoEstimadoMin} min</td>
+                    <td style="padding:1rem; text-align:center; color:var(--warning); font-weight:600;">${route.velocidadMaximaKmh} km/h</td>
                     <td style="padding:1rem; text-align:center;">
-                        <span class="status-badge ${r.activa ? 'status-active' : 'status-inactive'}">
-                            ${r.activa ? 'Activa' : 'Inactiva'}
+                        <span class="status-badge ${route.activa ? 'status-active' : 'status-inactive'}">
+                            ${route.activa ? 'Activa' : 'Inactiva'}
                         </span>
                     </td>
                     <td style="padding:1rem; text-align:right;">
-                        <button onclick="editRoute(${r.idRuta})" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
-                        ${r.activa ? `<button onclick="deleteRoute(${r.idRuta})" class="btn-action btn-delete" title="Desactivar"><i class="fa-solid fa-trash"></i></button>` : ''}
+                        <button onclick="editRoute(${route.idRuta})" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="toggleRouteStatus(${route.idRuta})" class="btn-action btn-status" title="${route.activa ? 'Desactivar' : 'Activar'}"><i class="fa-solid ${route.activa ? 'fa-toggle-off' : 'fa-toggle-on'}"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -245,12 +249,13 @@
                 return;
             }
 
-            const filtered = allRoutes.filter(r => 
-                r.codigoRuta.toLowerCase().includes(query) || 
-                r.nombreRuta.toLowerCase().includes(query) || 
-                r.origen.toLowerCase().includes(query) ||
-                r.destino.toLowerCase().includes(query)
+            const filtered = allRoutes.filter(route =>
+                route.codigoRuta.toLowerCase().includes(query) ||
+                route.nombreRuta.toLowerCase().includes(query) ||
+                route.origen.toLowerCase().includes(query) ||
+                route.destino.toLowerCase().includes(query)
             );
+
             renderTable(filtered);
         }
 
@@ -258,10 +263,12 @@
             const modal = document.getElementById('route-modal');
             modal.classList.add('active');
             document.getElementById('estado-container').style.display = isEdit ? 'flex' : 'none';
+
             if (!isEdit) {
                 document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-route"></i> Agregar Ruta';
                 document.getElementById('route-form').reset();
-                document.getElementById('route-id').value = "0";
+                document.getElementById('route-id').value = '0';
+                document.getElementById('estado').checked = true;
             }
         }
 
@@ -269,28 +276,30 @@
             document.getElementById('route-modal').classList.remove('active');
         }
 
-        async function editRoute(id) {
-            const r = allRoutes.find(item => item.idRuta === id);
-            if (!r) return;
+        function editRoute(id) {
+            const route = allRoutes.find(item => item.idRuta === id);
+            if (!route) {
+                return;
+            }
 
             document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-route"></i> Editar Ruta';
-            document.getElementById('route-id').value = r.idRuta;
-            document.getElementById('codigo-ruta').value = r.codigoRuta;
-            document.getElementById('nombre-ruta').value = r.nombreRuta;
-            document.getElementById('origen').value = r.origen;
-            document.getElementById('destino').value = r.destino;
-            document.getElementById('distancia').value = r.distanciaKm;
-            document.getElementById('tiempo-est').value = r.tiempoEstimadoMin;
-            document.getElementById('velocidad-max').value = r.velocidadMaximaKmh;
-            document.getElementById('estado').checked = r.activa;
+            document.getElementById('route-id').value = route.idRuta;
+            document.getElementById('codigo-ruta').value = route.codigoRuta;
+            document.getElementById('nombre-ruta').value = route.nombreRuta;
+            document.getElementById('origen').value = route.origen;
+            document.getElementById('destino').value = route.destino;
+            document.getElementById('distancia').value = route.distanciaKm;
+            document.getElementById('tiempo-est').value = route.tiempoEstimadoMin;
+            document.getElementById('velocidad-max').value = route.velocidadMaximaKmh;
+            document.getElementById('estado').checked = route.activa;
 
             openModal(true);
         }
 
         async function saveRoute(e) {
             e.preventDefault();
+
             const id = parseInt(document.getElementById('route-id').value);
-            
             const payload = {
                 idRuta: id,
                 codigoRuta: document.getElementById('codigo-ruta').value,
@@ -324,30 +333,45 @@
                     alert(`Error al guardar: ${err.message || 'Intente nuevamente'}`);
                 }
             } catch (err) {
-                alert("Falla de conexión.");
+                alert('Falla de conexion.');
             }
         }
 
-        async function deleteRoute(id) {
-            if (!confirm("¿Está seguro que desea desactivar (Soft Delete) esta ruta?")) return;
+        async function toggleRouteStatus(id) {
+            const route = allRoutes.find(item => item.idRuta === id);
+            if (!route) {
+                return;
+            }
+
+            const action = route.activa ? 'desactivar' : 'activar';
+            if (!confirm(`Estas seguro que desea ${action} esta ruta?`)) {
+                return;
+            }
 
             try {
                 const res = await fetch(`${apiBaseUrl}rutas/${id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ...route,
+                        activa: !route.activa
+                    })
                 });
 
                 if (res.ok) {
                     fetchRoutes();
                 } else {
-                    alert("Error al desactivar la ruta.");
+                    const err = await res.json();
+                    alert(`Error al actualizar el estado: ${err.message || 'Intente nuevamente'}`);
                 }
             } catch (err) {
-                alert("Falla de conexión.");
+                alert('Falla de conexion.');
             }
         }
 
-        // Init load
         fetchRoutes();
     </script>
 }

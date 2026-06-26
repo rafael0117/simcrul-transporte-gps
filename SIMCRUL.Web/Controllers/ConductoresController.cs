@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SIMCRUL.Web.Infrastructure;
 
 namespace SIMCRUL.Web.Controllers;
 
@@ -6,12 +7,21 @@ public class ConductoresController : Controller
 {
     private bool IsAuthorized()
     {
-        return HttpContext.Session.GetString("Token") != null;
+        return SessionAuthHelper.IsOperatorAuthenticated(HttpContext.Session);
     }
 
     public IActionResult Index()
     {
-        if (!IsAuthorized()) return RedirectToAction("Login", "Home");
+        if (!IsAuthorized())
+        {
+            if (SessionAuthHelper.IsPassengerAuthenticated(HttpContext.Session))
+            {
+                return RedirectToAction("Index", "Passenger");
+            }
+
+            return RedirectToAction("Login", "Home");
+        }
+
         return View();
     }
 }

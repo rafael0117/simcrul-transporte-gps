@@ -1,28 +1,26 @@
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
-    ViewData["Title"] = "Mantenimiento de Vehículos";
+    ViewData["Title"] = "Mantenimiento de Vehiculos";
 }
 
 <div class="page-shell">
-    <!-- Header Actions -->
     <div class="page-header-actions">
         <div>
             <h1 style="font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                <i class="fa-solid fa-bus"></i> Mantenimiento de Vehículos
+                <i class="fa-solid fa-bus"></i> Mantenimiento de Vehiculos
             </h1>
             <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">
-                Administre la flota de combis, cústers y autobuses del sistema.
+                Administre la flota y asigne cada bus a una ruta operativa cuando corresponda.
             </p>
         </div>
         <button onclick="openModal()" class="btn-primary">
-            <i class="fa-solid fa-plus"></i> Agregar Vehículo
+            <i class="fa-solid fa-plus"></i> Agregar Vehiculo
         </button>
     </div>
 
-    <!-- Filter Bar -->
     <div class="glass-card page-filter-bar">
         <div class="page-filter-main">
-            <input type="text" id="search-input" onkeyup="filterTable()" class="custom-input" placeholder="Buscar por placa o código..." style="padding-left: 2.5rem;" />
+            <input type="text" id="search-input" onkeyup="filterTable()" class="custom-input" placeholder="Buscar por placa, codigo, ruta o IMEI..." style="padding-left: 2.5rem;" />
             <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
         </div>
         <div class="page-filter-toggle">
@@ -31,27 +29,25 @@
         </div>
     </div>
 
-    <!-- Table Container -->
     <div class="glass-card responsive-table-card">
         <table id="vehicles-table">
             <thead>
                 <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                    <th style="padding: 1rem;">Código</th>
+                    <th style="padding: 1rem;">Codigo</th>
                     <th style="padding: 1rem;">Placa</th>
+                    <th style="padding: 1rem;">Ruta actual</th>
+                    <th style="padding: 1rem;">Conductor</th>
+                    <th style="padding: 1rem;">GPS / IMEI</th>
                     <th style="padding: 1rem;">Tipo</th>
-                    <th style="padding: 1rem;">Marca / Modelo</th>
-                    <th style="padding: 1rem; text-align: center;">Año</th>
                     <th style="padding: 1rem; text-align: center;">Capacidad</th>
-                    <th style="padding: 1rem; text-align: center;">V. Máx. (km/h)</th>
                     <th style="padding: 1rem; text-align: center;">Estado</th>
                     <th style="padding: 1rem; text-align: right;">Acciones</th>
                 </tr>
             </thead>
             <tbody id="vehicles-list">
-                <!-- Rendered dynamically -->
                 <tr>
                     <td colspan="9" style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block;"></i> Cargando vehículos...
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block;"></i> Cargando vehiculos...
                     </td>
                 </tr>
             </tbody>
@@ -59,12 +55,11 @@
     </div>
 </div>
 
-<!-- Add/Edit Modal -->
 <div id="vehicle-modal" class="modal-overlay">
     <div class="glass-card modal-card">
         <div class="modal-header">
             <h3 id="modal-title" style="font-size: 1.3rem; font-weight: 700; color: white;">
-                <i class="fa-solid fa-bus"></i> Agregar Vehículo
+                <i class="fa-solid fa-bus"></i> Agregar Vehiculo
             </h3>
             <button onclick="closeModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">
                 <i class="fa-solid fa-xmark"></i>
@@ -72,60 +67,100 @@
         </div>
 
         <form id="vehicle-form" onsubmit="saveVehicle(event)" class="modal-form">
-            <input type="hidden" id="vehicle-id" name="idVehiculo" value="0" />
+            <input type="hidden" id="vehicle-id" value="0" />
 
             <div class="form-grid-2">
                 <div>
                     <label class="form-label">Placa *</label>
-                    <input type="text" id="placa" name="placa" class="custom-input" placeholder="Ej: F3V-894" required />
+                    <input type="text" id="placa" class="custom-input" placeholder="Ej: AB-343" required />
                 </div>
                 <div>
-                    <label class="form-label">Código Interno *</label>
-                    <input type="text" id="codigo-interno" name="codigoInterno" class="custom-input" placeholder="Ej: V-102" required />
+                    <label class="form-label">Codigo Interno *</label>
+                    <input type="text" id="codigo-interno" class="custom-input" placeholder="Ej: DBEA" required />
                 </div>
             </div>
 
             <div class="form-grid-2">
                 <div>
-                    <label class="form-label">Tipo de Vehículo *</label>
-                    <select id="tipo-vehiculo" name="tipoVehiculo" class="custom-input" required>
-                        <option value="BUS">Autobús (Grande)</option>
-                        <option value="CUSTER" selected>Cúster</option>
-                        <option value="COMBI">Combi</option>
-                        <option value="AUTO">Automóvil / Taxi</option>
-                    </select>
+                    <label class="form-label">IMEI / Identificador GPS</label>
+                    <input type="text" id="imei" class="custom-input" placeholder="Ej: MOVIL-BUS-01 o IMEI real" />
                 </div>
                 <div>
-                    <label class="form-label">Año</label>
-                    <input type="number" id="anio" name="anio" class="custom-input" min="1990" max="2027" placeholder="Ej: 2021" />
+                    <label class="form-label">Proveedor GPS</label>
+                    <input type="text" id="proveedor" class="custom-input" placeholder="Ej: Telefono movil" />
                 </div>
+            </div>
+
+            <div class="form-grid-2">
+                <div>
+                    <label class="form-label">Numero de Serie GPS</label>
+                    <input type="text" id="numero-serie" class="custom-input" placeholder="Opcional, si no se llena se usara el IMEI" />
+                </div>
+                <div>
+                    <label class="form-label">Tipo de Vehiculo *</label>
+                    <select id="tipo-vehiculo" class="custom-input" required>
+                        <option value="BUS">Autobus (Grande)</option>
+                        <option value="CUSTER" selected>Custer</option>
+                        <option value="COMBI">Combi</option>
+                        <option value="AUTO">Automovil / Taxi</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-grid-2">
+                <div>
+                    <label class="form-label">Anio</label>
+                    <input type="number" id="anio" class="custom-input" min="1990" max="2030" placeholder="Ej: 2021" />
+                </div>
+                <div></div>
             </div>
 
             <div class="form-grid-2">
                 <div>
                     <label class="form-label">Marca</label>
-                    <input type="text" id="marca" name="marca" class="custom-input" placeholder="Ej: Toyota" />
+                    <input type="text" id="marca" class="custom-input" placeholder="Ej: Toyota" />
                 </div>
                 <div>
                     <label class="form-label">Modelo</label>
-                    <input type="text" id="modelo" name="modelo" class="custom-input" placeholder="Ej: Coaster" />
+                    <input type="text" id="modelo" class="custom-input" placeholder="Ej: Coaster" />
                 </div>
             </div>
 
             <div class="form-grid-2">
                 <div>
                     <label class="form-label">Capacidad Pasajeros *</label>
-                    <input type="number" id="capacidad" name="capacidadPasajeros" class="custom-input" min="1" required placeholder="Ej: 25" />
+                    <input type="number" id="capacidad" class="custom-input" min="1" required placeholder="Ej: 25" />
                 </div>
                 <div>
-                    <label class="form-label">Velocidad Máxima (km/h) *</label>
-                    <input type="number" id="velocidad-max" name="velocidadMaximaKmh" class="custom-input" min="1" required placeholder="Ej: 90" />
+                    <label class="form-label">Velocidad Maxima (km/h) *</label>
+                    <input type="number" id="velocidad-max" class="custom-input" min="1" required placeholder="Ej: 90" />
+                </div>
+            </div>
+
+            <div class="glass-card" style="padding: 1rem; border-radius: 12px; background: rgba(6, 182, 212, 0.05); border-color: rgba(6, 182, 212, 0.18);">
+                <div style="font-weight: 700; color: white; margin-bottom: 0.85rem;">Asignacion operativa</div>
+                <div class="form-grid-2">
+                    <div>
+                        <label class="form-label">Ruta</label>
+                        <select id="id-ruta" class="custom-input" onchange="handleRouteSelectionChange()">
+                            <option value="">Sin ruta asignada</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Conductor</label>
+                        <select id="id-conductor" class="custom-input">
+                            <option value="">Seleccione conductor</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-top: 0.65rem; font-size: 0.8rem; color: var(--text-muted);">
+                    Si cambias la ruta del bus, la asignacion anterior se cierra y la nueva queda programada. Si dejas la ruta vacia, el bus queda sin asignacion.
                 </div>
             </div>
 
             <div id="estado-container" style="display: none; align-items: center; gap: 0.5rem;">
-                <input type="checkbox" id="estado" name="estado" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);" checked />
-                <label class="form-label" style="margin-bottom: 0; cursor: pointer;" for="estado">Vehículo Activo</label>
+                <input type="checkbox" id="estado" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);" checked />
+                <label class="form-label" style="margin-bottom: 0; cursor: pointer;" for="estado">Vehiculo Activo</label>
             </div>
 
             <div class="modal-actions">
@@ -146,9 +181,11 @@
             border-bottom: 1px solid var(--border-color);
             transition: background 0.2s;
         }
+
         #vehicles-table tbody tr:hover {
             background: rgba(255, 255, 255, 0.02);
         }
+
         .status-badge {
             padding: 0.25rem 0.6rem;
             border-radius: 9999px;
@@ -156,16 +193,19 @@
             font-weight: 600;
             display: inline-block;
         }
+
         .status-active {
             background: rgba(16, 185, 129, 0.15);
             color: var(--success);
             border: 1px solid rgba(16, 185, 129, 0.3);
         }
+
         .status-inactive {
             background: rgba(239, 68, 68, 0.15);
             color: var(--danger);
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
+
         .btn-action {
             background: none;
             border: none;
@@ -175,17 +215,21 @@
             font-size: 0.9rem;
             transition: all 0.2s;
         }
+
         .btn-edit {
             color: var(--primary);
         }
+
         .btn-edit:hover {
             background: rgba(6, 182, 212, 0.1);
         }
-        .btn-delete {
-            color: var(--danger);
+
+        .btn-status {
+            color: var(--warning);
         }
-        .btn-delete:hover {
-            background: rgba(239, 68, 68, 0.1);
+
+        .btn-status:hover {
+            background: rgba(245, 158, 11, 0.1);
         }
     </style>
 }
@@ -196,54 +240,121 @@
         const token = '@Context.Session.GetString("Token")';
 
         let allVehicles = [];
+        let availableRoutes = [];
+        let availableDrivers = [];
+
+        async function fetchCatalogs() {
+            const headers = { 'Authorization': `Bearer ${token}` };
+            const [routesRes, driversRes] = await Promise.all([
+                fetch(`${apiBaseUrl}rutas?includeDeleted=false`, { headers }),
+                fetch(`${apiBaseUrl}conductores?includeDeleted=false`, { headers })
+            ]);
+
+            if (routesRes.ok) {
+                availableRoutes = await routesRes.json();
+            }
+
+            if (driversRes.ok) {
+                availableDrivers = await driversRes.json();
+            }
+
+            fillRouteSelector();
+            fillDriverSelector();
+        }
+
+        function fillRouteSelector() {
+            const select = document.getElementById('id-ruta');
+            select.innerHTML = '<option value="">Sin ruta asignada</option>';
+
+            availableRoutes.forEach(route => {
+                select.innerHTML += `<option value="${route.idRuta}">${route.codigoRuta} - ${route.nombreRuta}</option>`;
+            });
+        }
+
+        function fillDriverSelector() {
+            const select = document.getElementById('id-conductor');
+            select.innerHTML = '<option value="">Seleccione conductor</option>';
+
+            availableDrivers.forEach(driver => {
+                select.innerHTML += `<option value="${driver.idConductor}">${driver.nombres} ${driver.apellidos} - ${driver.numeroLicencia}</option>`;
+            });
+        }
+
+        function handleRouteSelectionChange() {
+            const routeValue = document.getElementById('id-ruta').value;
+            const driverSelect = document.getElementById('id-conductor');
+
+            if (!routeValue) {
+                driverSelect.value = '';
+            }
+        }
 
         async function fetchVehicles() {
             const showDeleted = document.getElementById('show-deleted').checked;
             const tbody = document.getElementById('vehicles-list');
-            
+
             try {
                 const res = await fetch(`${apiBaseUrl}vehiculos?includeDeleted=${showDeleted}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
+
                 if (res.ok) {
                     allVehicles = await res.json();
                     renderTable(allVehicles);
                 } else {
-                    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--danger);">Error al cargar los vehículos (${res.status}).</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--danger);">Error al cargar los vehiculos (${res.status}).</td></tr>`;
                 }
             } catch (err) {
                 console.error(err);
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--danger);">Falla de conexión con la API.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--danger);">Falla de conexion con la API.</td></tr>`;
             }
         }
 
         function renderTable(list) {
             const tbody = document.getElementById('vehicles-list');
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:3rem; color:var(--text-muted);">No se encontraron vehículos.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:3rem; color:var(--text-muted);">No se encontraron vehiculos.</td></tr>`;
                 return;
             }
 
             tbody.innerHTML = '';
-            list.forEach(v => {
+            list.forEach(vehicle => {
+                const gpsBadgeClass = vehicle.gpsActivo ? 'status-active' : 'status-inactive';
+                const gpsBadgeText = vehicle.imei ? (vehicle.gpsActivo ? 'GPS vinculado' : 'GPS inactivo') : 'Sin GPS';
+                const routeText = vehicle.idRuta
+                    ? `${vehicle.codigoRuta || ''} - ${vehicle.nombreRuta || ''}`
+                    : 'Sin ruta';
+
+                const driverText = vehicle.nombreConductor || 'Sin conductor';
+                const assignmentBadge = vehicle.estadoAsignacion
+                    ? `<div style="margin-top:0.35rem;"><span class="status-badge status-active">${vehicle.estadoAsignacion}</span></div>`
+                    : '';
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td style="padding:1rem; font-weight:600; color:var(--primary);">${v.codigoInterno}</td>
-                    <td style="padding:1rem; font-weight:700;">${v.placa}</td>
-                    <td style="padding:1rem;"><span style="font-size:0.85rem; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${v.tipoVehiculo}</span></td>
-                    <td style="padding:1rem;">${v.marca || ''} ${v.modelo || ''}</td>
-                    <td style="padding:1rem; text-align:center;">${v.anio || '-'}</td>
-                    <td style="padding:1rem; text-align:center;">${v.capacidadPasajeros} pasajeros</td>
-                    <td style="padding:1rem; text-align:center;">${v.velocidadMaximaKmh} km/h</td>
+                    <td style="padding:1rem; font-weight:600; color:var(--primary);">${vehicle.codigoInterno}</td>
+                    <td style="padding:1rem; font-weight:700;">${vehicle.placa}</td>
+                    <td style="padding:1rem;">
+                        <div style="font-weight:600;">${routeText}</div>
+                        ${assignmentBadge}
+                    </td>
+                    <td style="padding:1rem;">${driverText}</td>
+                    <td style="padding:1rem;">
+                        <div style="display:flex; flex-direction:column; gap:0.35rem;">
+                            <span style="font-weight:600;">${vehicle.imei || '-'}</span>
+                            <span class="status-badge ${gpsBadgeClass}" style="width:max-content;">${gpsBadgeText}</span>
+                        </div>
+                    </td>
+                    <td style="padding:1rem;"><span style="font-size:0.85rem; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${vehicle.tipoVehiculo}</span></td>
+                    <td style="padding:1rem; text-align:center;">${vehicle.capacidadPasajeros} pasajeros</td>
                     <td style="padding:1rem; text-align:center;">
-                        <span class="status-badge ${v.estado ? 'status-active' : 'status-inactive'}">
-                            ${v.estado ? 'Activo' : 'Inactivo'}
+                        <span class="status-badge ${vehicle.estado ? 'status-active' : 'status-inactive'}">
+                            ${vehicle.estado ? 'Activo' : 'Inactivo'}
                         </span>
                     </td>
                     <td style="padding:1rem; text-align:right;">
-                        <button onclick="editVehicle(${v.idVehiculo})" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
-                        ${v.estado ? `<button onclick="deleteVehicle(${v.idVehiculo})" class="btn-action btn-delete" title="Desactivar"><i class="fa-solid fa-trash"></i></button>` : ''}
+                        <button onclick="editVehicle(${vehicle.idVehiculo})" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="toggleVehicleStatus(${vehicle.idVehiculo})" class="btn-action btn-status" title="${vehicle.estado ? 'Desactivar' : 'Activar'}"><i class="fa-solid ${vehicle.estado ? 'fa-toggle-off' : 'fa-toggle-on'}"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -257,12 +368,15 @@
                 return;
             }
 
-            const filtered = allVehicles.filter(v => 
-                v.placa.toLowerCase().includes(query) || 
-                v.codigoInterno.toLowerCase().includes(query) || 
-                (v.marca && v.marca.toLowerCase().includes(query)) ||
-                (v.modelo && v.modelo.toLowerCase().includes(query))
+            const filtered = allVehicles.filter(vehicle =>
+                vehicle.placa.toLowerCase().includes(query) ||
+                vehicle.codigoInterno.toLowerCase().includes(query) ||
+                (vehicle.imei && vehicle.imei.toLowerCase().includes(query)) ||
+                (vehicle.codigoRuta && vehicle.codigoRuta.toLowerCase().includes(query)) ||
+                (vehicle.nombreRuta && vehicle.nombreRuta.toLowerCase().includes(query)) ||
+                (vehicle.nombreConductor && vehicle.nombreConductor.toLowerCase().includes(query))
             );
+
             renderTable(filtered);
         }
 
@@ -270,10 +384,14 @@
             const modal = document.getElementById('vehicle-modal');
             modal.classList.add('active');
             document.getElementById('estado-container').style.display = isEdit ? 'flex' : 'none';
+
             if (!isEdit) {
-                document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-bus"></i> Agregar Vehículo';
+                document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-bus"></i> Agregar Vehiculo';
                 document.getElementById('vehicle-form').reset();
-                document.getElementById('vehicle-id').value = "0";
+                document.getElementById('vehicle-id').value = '0';
+                document.getElementById('estado').checked = true;
+                document.getElementById('id-ruta').value = '';
+                document.getElementById('id-conductor').value = '';
             }
         }
 
@@ -281,40 +399,60 @@
             document.getElementById('vehicle-modal').classList.remove('active');
         }
 
-        async function editVehicle(id) {
-            const v = allVehicles.find(item => item.idVehiculo === id);
-            if (!v) return;
+        function editVehicle(id) {
+            const vehicle = allVehicles.find(item => item.idVehiculo === id);
+            if (!vehicle) {
+                return;
+            }
 
-            document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-bus"></i> Editar Vehículo';
-            document.getElementById('vehicle-id').value = v.idVehiculo;
-            document.getElementById('placa').value = v.placa;
-            document.getElementById('codigo-interno').value = v.codigoInterno;
-            document.getElementById('tipo-vehiculo').value = v.tipoVehiculo;
-            document.getElementById('anio').value = v.anio || '';
-            document.getElementById('marca').value = v.marca || '';
-            document.getElementById('modelo').value = v.modelo || '';
-            document.getElementById('capacidad').value = v.capacidadPasajeros;
-            document.getElementById('velocidad-max').value = v.velocidadMaximaKmh;
-            document.getElementById('estado').checked = v.estado;
+            document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-bus"></i> Editar Vehiculo';
+            document.getElementById('vehicle-id').value = vehicle.idVehiculo;
+            document.getElementById('placa').value = vehicle.placa;
+            document.getElementById('codigo-interno').value = vehicle.codigoInterno;
+            document.getElementById('imei').value = vehicle.imei || '';
+            document.getElementById('proveedor').value = vehicle.proveedor || '';
+            document.getElementById('numero-serie').value = vehicle.numeroSerie || '';
+            document.getElementById('tipo-vehiculo').value = vehicle.tipoVehiculo;
+            document.getElementById('anio').value = vehicle.anio || '';
+            document.getElementById('marca').value = vehicle.marca || '';
+            document.getElementById('modelo').value = vehicle.modelo || '';
+            document.getElementById('capacidad').value = vehicle.capacidadPasajeros;
+            document.getElementById('velocidad-max').value = vehicle.velocidadMaximaKmh;
+            document.getElementById('id-ruta').value = vehicle.idRuta || '';
+            document.getElementById('id-conductor').value = vehicle.idConductor || '';
+            document.getElementById('estado').checked = vehicle.estado;
 
             openModal(true);
         }
 
         async function saveVehicle(e) {
             e.preventDefault();
+
             const id = parseInt(document.getElementById('vehicle-id').value);
-            
+            const routeValue = document.getElementById('id-ruta').value;
+            const driverValue = document.getElementById('id-conductor').value;
+
+            if (routeValue && !driverValue) {
+                alert('Debes seleccionar un conductor para asignar una ruta al bus.');
+                return;
+            }
+
             const payload = {
                 idVehiculo: id,
                 placa: document.getElementById('placa').value,
                 codigoInterno: document.getElementById('codigo-interno').value,
+                imei: document.getElementById('imei').value || null,
+                proveedor: document.getElementById('proveedor').value || null,
+                numeroSerie: document.getElementById('numero-serie').value || null,
                 tipoVehiculo: document.getElementById('tipo-vehiculo').value,
                 anio: document.getElementById('anio').value ? parseInt(document.getElementById('anio').value) : null,
                 marca: document.getElementById('marca').value || null,
                 modelo: document.getElementById('modelo').value || null,
                 capacidadPasajeros: parseInt(document.getElementById('capacidad').value),
                 velocidadMaximaKmh: parseFloat(document.getElementById('velocidad-max').value),
-                estado: id === 0 ? true : document.getElementById('estado').checked
+                estado: id === 0 ? true : document.getElementById('estado').checked,
+                idRuta: routeValue ? parseInt(routeValue) : null,
+                idConductor: routeValue && driverValue ? parseInt(driverValue) : null
             };
 
             const method = id === 0 ? 'POST' : 'PUT';
@@ -338,30 +476,50 @@
                     alert(`Error al guardar: ${err.message || 'Intente nuevamente'}`);
                 }
             } catch (err) {
-                alert("Falla de conexión.");
+                alert('Falla de conexion.');
             }
         }
 
-        async function deleteVehicle(id) {
-            if (!confirm("¿Está seguro que desea desactivar (Soft Delete) este vehículo?")) return;
+        async function toggleVehicleStatus(id) {
+            const vehicle = allVehicles.find(item => item.idVehiculo === id);
+            if (!vehicle) {
+                return;
+            }
+
+            const action = vehicle.estado ? 'desactivar' : 'activar';
+            if (!confirm(`Estas seguro que desea ${action} este vehiculo?`)) {
+                return;
+            }
 
             try {
                 const res = await fetch(`${apiBaseUrl}vehiculos/${id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ...vehicle,
+                        estado: !vehicle.estado
+                    })
                 });
 
                 if (res.ok) {
                     fetchVehicles();
                 } else {
-                    alert("Error al desactivar el vehículo.");
+                    const err = await res.json();
+                    alert(`Error al actualizar el estado: ${err.message || 'Intente nuevamente'}`);
                 }
             } catch (err) {
-                alert("Falla de conexión.");
+                alert('Falla de conexion.');
             }
         }
 
-        // Init load
-        fetchVehicles();
+        async function initPage() {
+            await fetchCatalogs();
+            await fetchVehicles();
+        }
+
+        initPage();
     </script>
 }

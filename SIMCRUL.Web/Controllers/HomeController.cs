@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using SIMCRUL.Common.DTOs.Auth;
+using SIMCRUL.Web.Infrastructure;
 using SIMCRUL.Web.Services;
 
 namespace SIMCRUL.Web.Controllers;
@@ -21,10 +22,16 @@ public class HomeController : Controller
     [HttpGet]
     public IActionResult Login()
     {
-        if (HttpContext.Session.GetString("Token") != null)
+        if (SessionAuthHelper.IsOperatorAuthenticated(HttpContext.Session))
         {
             return RedirectToAction("Index", "Dashboard");
         }
+
+        if (SessionAuthHelper.IsPassengerAuthenticated(HttpContext.Session))
+        {
+            return RedirectToAction("Index", "Passenger");
+        }
+
         return View();
     }
 
@@ -46,6 +53,11 @@ public class HomeController : Controller
                 HttpContext.Session.SetString("Username", response.Username);
                 HttpContext.Session.SetString("Nombres", response.Nombres);
                 HttpContext.Session.SetString("Apellidos", response.Apellidos);
+
+                if (string.Equals(response.Rol, "Pasajero", StringComparison.OrdinalIgnoreCase))
+                {
+                    return RedirectToAction("Index", "Passenger");
+                }
 
                 return RedirectToAction("Index", "Dashboard");
             }

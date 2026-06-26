@@ -5,6 +5,11 @@
 
 <div class="centered-page">
     <div class="glass-card login-card">
+        @if (TempData["SuccessMessage"] is string successMessage)
+        {
+            <div class="alert alert-success" style="border-radius:12px; margin-bottom:1.5rem;">@successMessage</div>
+        }
+
         <div style="text-align: center; margin-bottom: 2rem;">
             <i class="fa-solid fa-user-shield" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
             <h2>Ingreso al Sistema</h2>
@@ -21,18 +26,34 @@
             </div>
 
             <div>
-                <label asp-for="Password" class="form-label">Contraseña</label>
-                <input asp-for="Password" type="password" class="custom-input" placeholder="••••••••" autocomplete="current-password" />
+                <label asp-for="Password" class="form-label">Contrasena</label>
+                <input asp-for="Password" type="password" class="custom-input" placeholder="********" autocomplete="current-password" />
                 <span asp-validation-for="Password" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem; display: block;"></span>
             </div>
 
             <button type="submit" class="btn-primary" style="width: 100%; padding: 0.8rem; font-size: 1rem; border-radius: 12px; margin-top: 1rem;">
-                <i class="fa-solid fa-arrow-right-to-bracket"></i> Iniciar Sesión
+                <i class="fa-solid fa-arrow-right-to-bracket"></i> Iniciar sesion
             </button>
         </form>
 
+        <div style="margin-top: 1rem; text-align: center;">
+            <a asp-controller="Cuenta" asp-action="OlvidoContrasena" style="color: var(--primary); font-weight: 600; text-decoration: none;">
+                <i class="fa-solid fa-key"></i> Recuperar contrasena
+            </a>
+        </div>
+
+        <div style="margin-top: 1rem; text-align: center;">
+            <a asp-controller="Passenger" asp-action="Login" style="color: var(--secondary); font-weight: 600; text-decoration: none;">
+                <i class="fa-solid fa-bus-simple"></i> Ingreso para pasajeros
+            </a>
+        </div>
+
         <div style="margin-top: 1.5rem; text-align: center;">
-            <span style="color: var(--text-muted); font-size: 0.85rem;">¿No tiene una cuenta? Póngase en contacto con el administrador.</span>
+            <span style="color: var(--text-muted); font-size: 0.85rem;">Si no tiene una cuenta, pongase en contacto con el administrador.</span>
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -25,10 +25,4 @@ public class Ruta
 
     [JsonIgnore]
     public virtual ICollection<AsignacionOperacion> Asignaciones { get; set; } = new List<AsignacionOperacion>();
-
-    [JsonIgnore]
-    public virtual ICollection<FavoritoPasajero> Favoritos { get; set; } = new List<FavoritoPasajero>();
-
-    [JsonIgnore]
-    public virtual ICollection<ConsultaRuta> Consultas { get; set; } = new List<ConsultaRuta>();
 }

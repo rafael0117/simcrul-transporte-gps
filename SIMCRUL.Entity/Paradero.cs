@@ -14,10 +14,4 @@ public class Paradero
 
     [JsonIgnore]
     public virtual ICollection<RutaParadero> RutaParaderos { get; set; } = new List<RutaParadero>();
-
-    [JsonIgnore]
-    public virtual ICollection<FavoritoPasajero> FavoritosOrigen { get; set; } = new List<FavoritoPasajero>();
-
-    [JsonIgnore]
-    public virtual ICollection<FavoritoPasajero> FavoritosDestino { get; set; } = new List<FavoritoPasajero>();
 }

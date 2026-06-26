@@ -12,6 +12,7 @@ public static class DatabaseInitializer
     {
         // Ensure the database and schema are created
         await context.Database.EnsureCreatedAsync();
+        await EnsureCompatibilitySchemaAsync(context);
 
         // 1. Seed Roles
         var requiredRoles = new[] { "Administrador", "Supervisor", "Operador", "Pasajero" };
@@ -189,5 +190,55 @@ public static class DatabaseInitializer
             builder.Append(b.ToString("x2"));
         }
         return builder.ToString();
+    }
+
+    private static async Task EnsureCompatibilitySchemaAsync(ApplicationDbContext context)
+    {
+        const string sql = """
+            IF OBJECT_ID('PASSWORD_RESET_TOKENS', 'U') IS NULL
+            BEGIN
+                CREATE TABLE PASSWORD_RESET_TOKENS
+                (
+                    id_password_reset_token INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    id_usuario INT NOT NULL,
+                    token_hash NVARCHAR(200) NOT NULL,
+                    expiration_utc DATETIME2 NOT NULL,
+                    used_at_utc DATETIME2 NULL,
+                    created_at_utc DATETIME2 NOT NULL CONSTRAINT DF_PASSWORD_RESET_TOKENS_CREATED DEFAULT SYSUTCDATETIME(),
+                    requested_by_ip NVARCHAR(64) NULL,
+                    email_sent_to NVARCHAR(200) NOT NULL,
+                    CONSTRAINT FK_PASSWORD_RESET_TOKENS_USUARIOS FOREIGN KEY (id_usuario) REFERENCES USUARIOS(id_usuario)
+                );
+
+                CREATE INDEX IX_PASSWORD_RESET_TOKENS_ID_USUARIO ON PASSWORD_RESET_TOKENS(id_usuario);
+                CREATE INDEX IX_PASSWORD_RESET_TOKENS_TOKEN_HASH ON PASSWORD_RESET_TOKENS(token_hash);
+            END
+
+            IF OBJECT_ID('SOLICITUDES_PASAJERO', 'U') IS NULL
+            BEGIN
+                CREATE TABLE SOLICITUDES_PASAJERO
+                (
+                    id_solicitud_pasajero INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    id_usuario INT NOT NULL,
+                    id_ruta INT NULL,
+                    tipo_solicitud NVARCHAR(30) NOT NULL,
+                    asunto NVARCHAR(150) NOT NULL,
+                    descripcion NVARCHAR(2000) NOT NULL,
+                    estado NVARCHAR(30) NOT NULL CONSTRAINT DF_SOLICITUDES_PASAJERO_ESTADO DEFAULT 'PENDIENTE',
+                    fecha_registro DATETIME2 NOT NULL CONSTRAINT DF_SOLICITUDES_PASAJERO_FECHA DEFAULT SYSUTCDATETIME(),
+                    email_contacto NVARCHAR(200) NULL,
+                    telefono_contacto NVARCHAR(30) NULL,
+                    respuesta NVARCHAR(2000) NULL,
+                    fecha_respuesta DATETIME2 NULL,
+                    CONSTRAINT FK_SOLICITUDES_PASAJERO_USUARIOS FOREIGN KEY (id_usuario) REFERENCES USUARIOS(id_usuario),
+                    CONSTRAINT FK_SOLICITUDES_PASAJERO_RUTAS FOREIGN KEY (id_ruta) REFERENCES RUTAS(id_ruta)
+                );
+
+                CREATE INDEX IX_SOLICITUDES_PASAJERO_ID_USUARIO ON SOLICITUDES_PASAJERO(id_usuario);
+                CREATE INDEX IX_SOLICITUDES_PASAJERO_ID_RUTA ON SOLICITUDES_PASAJERO(id_ruta);
+            END
+            """;
+
+        await context.Database.ExecuteSqlRawAsync(sql);
     }
 }
