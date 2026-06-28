@@ -1,8 +1,6 @@
-using System.Text.Json.Serialization;
+namespace SIMCRUL.Common.DTOs.Drivers;
 
-namespace SIMCRUL.Entity;
-
-public class Conductor
+public class ConductorManagementDto
 {
     public int IdConductor { get; set; }
     public int IdEmpresa { get; set; }
@@ -15,14 +13,7 @@ public class Conductor
     public DateTime FechaVencimientoLicencia { get; set; }
     public string? Telefono { get; set; }
     public bool Estado { get; set; } = true;
-    public DateTime FechaRegistro { get; set; } = DateTime.UtcNow;
-
-    [JsonIgnore]
-    public virtual EmpresaTransporte? EmpresaTransporte { get; set; }
-
-    [JsonIgnore]
-    public virtual Usuario? Usuario { get; set; }
-
-    [JsonIgnore]
-    public virtual ICollection<AsignacionOperacion> Asignaciones { get; set; } = new List<AsignacionOperacion>();
+    public DateTime FechaRegistro { get; set; }
+    public string? UsernameUsuario { get; set; }
+    public string? NombreUsuario { get; set; }
 }

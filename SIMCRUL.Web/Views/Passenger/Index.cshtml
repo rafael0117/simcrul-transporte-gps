@@ -46,38 +46,6 @@
             </div>
         </div>
 
-        <div id="eta-panel" style="display: none; flex-direction: column; gap: 1.25rem;">
-            <h3 style="margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-                <i class="fa-regular fa-clock"></i> Calculador de ETA
-            </h3>
-            <div>
-                <label class="form-label">Paradero Origen</label>
-                <select id="stop-origin-select" class="custom-input" onchange="calculateEta()">
-                    <option value="">Seleccione origen</option>
-                </select>
-            </div>
-            <div>
-                <label class="form-label">Paradero Destino</label>
-                <select id="stop-dest-select" class="custom-input" onchange="calculateEta()">
-                    <option value="">Seleccione destino</option>
-                </select>
-            </div>
-
-            <div class="glass-card" style="background: rgba(6, 182, 212, 0.05); border-color: rgba(6, 182, 212, 0.2); padding: 1.25rem; border-radius: 12px; display: flex; flex-direction: column; gap: 0.75rem;">
-                <div class="info-row">
-                    <span style="font-size: 0.9rem; color: var(--text-secondary);">Tiempo de Viaje:</span>
-                    <span id="eta-travel-time" style="font-weight: 700; color: var(--primary); font-size: 1.1rem;">-- min</span>
-                </div>
-                <div class="info-row">
-                    <span style="font-size: 0.9rem; color: var(--text-secondary);">Proximo Bus ETA:</span>
-                    <span id="eta-next-bus" style="font-weight: 700; color: var(--success); font-size: 1.1rem;">-- min</span>
-                </div>
-                <div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; border-top: 1px solid var(--border-color); padding-top: 0.5rem;" id="eta-bus-detail">
-                    Seleccione origen y destino para calcular.
-                </div>
-            </div>
-        </div>
-
         <div>
             <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
                 <i class="fa-solid fa-bus"></i> Proximos Buses
@@ -326,20 +294,12 @@
         }
 
         function renderStops(routeDetail) {
-            const originSelect = document.getElementById('stop-origin-select');
-            const destSelect = document.getElementById('stop-dest-select');
             const listContainer = document.getElementById('stops-list-container');
 
-            originSelect.innerHTML = '<option value="">Seleccione origen</option>';
-            destSelect.innerHTML = '<option value="">Seleccione destino</option>';
             listContainer.innerHTML = '';
 
             routeDetail.rutaParaderos.forEach(rp => {
                 const stop = rp.paradero;
-                const optionText = `${stop.nombre} (Distrito: ${stop.distrito})`;
-
-                originSelect.innerHTML += `<option value="${rp.idRutaParadero}">${optionText}</option>`;
-                destSelect.innerHTML += `<option value="${rp.idRutaParadero}">${optionText}</option>`;
 
                 listContainer.innerHTML += `
                     <div style="padding: 0.4rem; border-bottom: 1px solid var(--border-color); display: flex; gap: 0.5rem; align-items: center;">
@@ -352,20 +312,9 @@
             });
         }
 
-        function getTargetStopForVehicle(vehicle) {
+        function estimateBusEta(vehicle) {
             if (!activeRouteDetail?.rutaParaderos?.length) {
                 return null;
-            }
-
-            const selectedOriginId = document.getElementById('stop-origin-select').value;
-            if (selectedOriginId) {
-                const selectedRouteStop = activeRouteDetail.rutaParaderos.find(routeStop => routeStop.idRutaParadero == selectedOriginId);
-                if (selectedRouteStop) {
-                    return {
-                        routeStop: selectedRouteStop,
-                        label: 'Tu paradero'
-                    };
-                }
             }
 
             let nearestRouteStop = null;
@@ -389,31 +338,19 @@
                 return null;
             }
 
-            return {
-                routeStop: nearestRouteStop,
-                label: 'Paradero cercano'
-            };
-        }
-
-        function estimateBusEta(vehicle) {
-            const target = getTargetStopForVehicle(vehicle);
-            if (!target) {
-                return null;
-            }
-
             const distanceMeters = calculateDistance(
                 Number(vehicle.latitud),
                 Number(vehicle.longitud),
-                Number(target.routeStop.paradero.latitud),
-                Number(target.routeStop.paradero.longitud)
+                Number(nearestRouteStop.paradero.latitud),
+                Number(nearestRouteStop.paradero.longitud)
             );
 
             const speedKmh = Math.max(Number(vehicle.velocidadKmh) || 24, 14);
             const etaMinutes = Math.max(1, Math.round((distanceMeters / 1000) / speedKmh * 60));
 
             return {
-                stopName: target.routeStop.paradero.nombre,
-                hintLabel: target.label,
+                stopName: nearestRouteStop.paradero.nombre,
+                hintLabel: 'Paradero cercano',
                 distanceKm: distanceMeters / 1000,
                 etaMinutes
             };
@@ -592,7 +529,6 @@
             const routeId = parseInt(document.getElementById('pass-route-select').value);
             selectedRouteId = routeId || null;
             if (!routeId) {
-                document.getElementById('eta-panel').style.display = 'none';
                 clearRouteVisuals();
                 return;
             }
@@ -607,9 +543,6 @@
                 clearRouteVisuals();
                 renderStops(activeRouteDetail);
                 await renderRouteOnMap(activeRouteDetail);
-
-                document.getElementById('eta-panel').style.display = 'flex';
-                calculateEta();
                 await fetchActiveBusesForRoute(routeId);
             } catch (err) {
                 console.error(err);
@@ -700,66 +633,6 @@
             updateRouteBusCount();
         }
 
-        function calculateEta() {
-            const originVal = document.getElementById('stop-origin-select').value;
-            const destVal = document.getElementById('stop-dest-select').value;
-
-            if (!originVal || !destVal || !activeRouteDetail) {
-                document.getElementById('eta-travel-time').textContent = '-- min';
-                document.getElementById('eta-next-bus').textContent = '-- min';
-                document.getElementById('eta-bus-detail').textContent = 'Seleccione origen y destino para calcular.';
-                renderActiveBusesList();
-                return;
-            }
-
-            const originRp = activeRouteDetail.rutaParaderos.find(rp => rp.idRutaParadero == originVal);
-            const destRp = activeRouteDetail.rutaParaderos.find(rp => rp.idRutaParadero == destVal);
-
-            if (!originRp || !destRp) {
-                renderActiveBusesList();
-                return;
-            }
-
-            const diffTime = destRp.tiempoEstimadoDesdeInicioMin - originRp.tiempoEstimadoDesdeInicioMin;
-            if (diffTime < 0) {
-                document.getElementById('eta-travel-time').textContent = 'Invalido';
-                document.getElementById('eta-bus-detail').textContent = 'Destino debe ser posterior a origen.';
-                renderActiveBusesList();
-                return;
-            }
-
-            document.getElementById('eta-travel-time').textContent = `${diffTime} min`;
-
-            let nearestBus = null;
-            let minDistance = Infinity;
-
-            Object.values(busMarkers).forEach(marker => {
-                const position = getMarkerPosition(marker);
-                const distance = calculateDistance(
-                    position.lat,
-                    position.lng,
-                    Number(originRp.paradero.latitud),
-                    Number(originRp.paradero.longitud)
-                );
-
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    nearestBus = { distance };
-                }
-            });
-
-            if (nearestBus) {
-                const etaMin = Math.round((nearestBus.distance / 8.3) / 60);
-                document.getElementById('eta-next-bus').textContent = `${etaMin} min`;
-                document.getElementById('eta-bus-detail').innerHTML = `<i class="fa-solid fa-circle-check"></i> El bus mas cercano esta a <strong>${(nearestBus.distance / 1000).toFixed(1)} km</strong> de distancia.`;
-            } else {
-                document.getElementById('eta-next-bus').textContent = 'No disponible';
-                document.getElementById('eta-bus-detail').textContent = 'No hay buses activos en esta ruta actualmente.';
-            }
-
-            renderActiveBusesList();
-        }
-
         function getMarkerPosition(marker) {
             if (useGoogleMaps && marker.getPosition) {
                 const position = marker.getPosition();
@@ -803,7 +676,6 @@
                 }
 
                 addOrUpdateBusMarker(vehicle);
-                calculateEta();
                 updateRouteBusCount();
                 renderActiveBusesList();
             }

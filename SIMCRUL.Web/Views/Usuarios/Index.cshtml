@@ -1,0 +1,441 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    ViewData["Title"] = "Administracion de Usuarios";
+}
+
+<div class="page-shell">
+    <div class="page-header-actions">
+        <div>
+            <h1 style="font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                <i class="fa-solid fa-users-gear"></i> Administracion de Usuarios
+            </h1>
+            <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">
+                Cree cuentas, cambie roles, reactive usuarios y agregue perfiles de supervisor o conductor.
+            </p>
+        </div>
+        <button onclick="openModal()" class="btn-primary">
+            <i class="fa-solid fa-user-plus"></i> Agregar Usuario
+        </button>
+    </div>
+
+    <div class="glass-card page-filter-bar">
+        <div class="page-filter-main">
+            <input type="text" id="search-input" onkeyup="filterTable()" class="custom-input" placeholder="Buscar por nombre, correo, usuario o rol..." style="padding-left: 2.5rem;" />
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+        </div>
+        <div class="page-filter-toggle">
+            <label class="form-label" style="margin-bottom: 0; white-space: nowrap;">Mostrar inactivos</label>
+            <input type="checkbox" id="show-inactive" onchange="fetchUsers()" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);" />
+        </div>
+    </div>
+
+    <div class="glass-card responsive-table-card">
+        <table id="users-table">
+            <thead>
+                <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <th style="padding: 1rem;">Usuario</th>
+                    <th style="padding: 1rem;">Nombre Completo</th>
+                    <th style="padding: 1rem;">Correo</th>
+                    <th style="padding: 1rem; text-align: center;">Rol</th>
+                    <th style="padding: 1rem; text-align: center;">Telefono</th>
+                    <th style="padding: 1rem; text-align: center;">Estado</th>
+                    <th style="padding: 1rem; text-align: right;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="users-list">
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block;"></i> Cargando usuarios...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="user-modal" class="modal-overlay">
+    <div class="glass-card modal-card">
+        <div class="modal-header">
+            <h3 id="modal-title" style="font-size: 1.3rem; font-weight: 700; color: white;">
+                <i class="fa-solid fa-user-plus"></i> Agregar Usuario
+            </h3>
+            <button onclick="closeModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <form id="user-form" onsubmit="saveUser(event)" class="modal-form">
+            <input type="hidden" id="user-id" value="0" />
+
+            <div class="form-grid-2">
+                <div>
+                    <label class="form-label">Nombres *</label>
+                    <input type="text" id="nombres" class="custom-input" required />
+                </div>
+                <div>
+                    <label class="form-label">Apellidos *</label>
+                    <input type="text" id="apellidos" class="custom-input" required />
+                </div>
+            </div>
+
+            <div class="form-grid-2">
+                <div>
+                    <label class="form-label">Usuario *</label>
+                    <input type="text" id="username" class="custom-input" required />
+                </div>
+                <div>
+                    <label class="form-label">Telefono</label>
+                    <input type="text" id="telefono" class="custom-input" />
+                </div>
+            </div>
+
+            <div class="form-grid-2">
+                <div>
+                    <label class="form-label">Correo *</label>
+                    <input type="email" id="email" class="custom-input" required />
+                </div>
+                <div>
+                    <label class="form-label">Rol *</label>
+                    <select id="id-rol" class="custom-input" required></select>
+                </div>
+            </div>
+
+            <div>
+                <label class="form-label">Contrasena <span id="password-hint" style="color: var(--text-muted);">(obligatoria al crear)</span></label>
+                <input type="password" id="password" class="custom-input" minlength="6" />
+            </div>
+
+            <div id="estado-container" style="display: none; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" id="activo" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);" checked />
+                <label class="form-label" style="margin-bottom: 0; cursor: pointer;" for="activo">Usuario Activo</label>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" onclick="closeModal()" class="custom-input" style="width: auto; padding: 0.6rem 1.5rem; background: rgba(255,255,255,0.05); color: white; cursor: pointer; border-radius: 8px;">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary" style="border-radius: 8px; padding: 0.6rem 2rem;">
+                    Guardar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        #users-table tbody tr {
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s;
+        }
+
+        #users-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-active {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-inactive {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .role-pill {
+            display: inline-flex;
+            padding: 0.3rem 0.65rem;
+            border-radius: 9999px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            background: rgba(99, 102, 241, 0.14);
+            border: 1px solid rgba(99, 102, 241, 0.22);
+            color: #c7d2fe;
+        }
+
+        .btn-action {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .btn-edit {
+            color: var(--primary);
+        }
+
+        .btn-edit:hover {
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        .btn-status {
+            color: var(--warning);
+        }
+
+        .btn-status:hover {
+            background: rgba(245, 158, 11, 0.1);
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        const apiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
+        const token = '@Context.Session.GetString("Token")';
+
+        let allUsers = [];
+        let roleOptions = [];
+
+        async function fetchRoles() {
+            const response = await fetch(`${apiBaseUrl}usuarios/roles`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) {
+                throw new Error(`No se pudieron cargar los roles (${response.status}).`);
+            }
+
+            roleOptions = await response.json();
+            const select = document.getElementById('id-rol');
+            select.innerHTML = '<option value="">-- Seleccione un rol --</option>';
+            roleOptions.forEach(role => {
+                select.innerHTML += `<option value="${role.idRol}">${role.nombre}</option>`;
+            });
+        }
+
+        async function fetchUsers() {
+            const showInactive = document.getElementById('show-inactive').checked;
+            const tbody = document.getElementById('users-list');
+
+            try {
+                const response = await fetch(`${apiBaseUrl}usuarios?includeInactive=${showInactive}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--danger);">Error al cargar usuarios (${response.status}).</td></tr>`;
+                    return;
+                }
+
+                allUsers = await response.json();
+                renderTable(allUsers);
+            } catch (error) {
+                console.error(error);
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--danger);">Falla de conexion con la API.</td></tr>`;
+            }
+        }
+
+        function renderTable(list) {
+            const tbody = document.getElementById('users-list');
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:3rem; color:var(--text-muted);">No se encontraron usuarios.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            list.forEach(user => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="padding:1rem; font-weight:700;">${escapeHtml(user.username)}</td>
+                    <td style="padding:1rem;">${escapeHtml(`${user.nombres} ${user.apellidos}`)}</td>
+                    <td style="padding:1rem;">${escapeHtml(user.email)}</td>
+                    <td style="padding:1rem; text-align:center;"><span class="role-pill">${escapeHtml(user.rol)}</span></td>
+                    <td style="padding:1rem; text-align:center;">${escapeHtml(user.telefono || '-')}</td>
+                    <td style="padding:1rem; text-align:center;">
+                        <span class="status-badge ${user.activo ? 'status-active' : 'status-inactive'}">${user.activo ? 'Activo' : 'Inactivo'}</span>
+                    </td>
+                    <td style="padding:1rem; text-align:right;">
+                        <button onclick="editUser(${user.idUsuario})" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="toggleUserStatus(${user.idUsuario})" class="btn-action btn-status" title="${user.activo ? 'Inactivar' : 'Activar'}"><i class="fa-solid ${user.activo ? 'fa-toggle-off' : 'fa-toggle-on'}"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function filterTable() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            if (!query) {
+                renderTable(allUsers);
+                return;
+            }
+
+            const filtered = allUsers.filter(user =>
+                user.username.toLowerCase().includes(query) ||
+                user.email.toLowerCase().includes(query) ||
+                user.nombres.toLowerCase().includes(query) ||
+                user.apellidos.toLowerCase().includes(query) ||
+                user.rol.toLowerCase().includes(query)
+            );
+
+            renderTable(filtered);
+        }
+
+        function openModal(isEdit = false) {
+            document.getElementById('user-modal').classList.add('active');
+            document.getElementById('estado-container').style.display = isEdit ? 'flex' : 'none';
+            document.getElementById('password-hint').textContent = isEdit ? '(opcional para cambiarla)' : '(obligatoria al crear)';
+
+            if (!isEdit) {
+                document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-user-plus"></i> Agregar Usuario';
+                document.getElementById('user-form').reset();
+                document.getElementById('user-id').value = '0';
+                document.getElementById('activo').checked = true;
+                document.getElementById('id-rol').value = '';
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('user-modal').classList.remove('active');
+        }
+
+        function editUser(id) {
+            const user = allUsers.find(item => item.idUsuario === id);
+            if (!user) {
+                return;
+            }
+
+            document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-user-pen"></i> Editar Usuario';
+            document.getElementById('user-id').value = user.idUsuario;
+            document.getElementById('nombres').value = user.nombres;
+            document.getElementById('apellidos').value = user.apellidos;
+            document.getElementById('username').value = user.username;
+            document.getElementById('telefono').value = user.telefono || '';
+            document.getElementById('email').value = user.email;
+            document.getElementById('id-rol').value = user.idRol;
+            document.getElementById('password').value = '';
+            document.getElementById('activo').checked = user.activo;
+
+            openModal(true);
+        }
+
+        async function saveUser(event) {
+            event.preventDefault();
+            const id = parseInt(document.getElementById('user-id').value, 10);
+            const password = document.getElementById('password').value.trim();
+
+            if (id === 0 && password.length < 6) {
+                alert('La contrasena inicial debe tener al menos 6 caracteres.');
+                return;
+            }
+
+            const payload = {
+                idUsuario: id,
+                nombres: document.getElementById('nombres').value.trim(),
+                apellidos: document.getElementById('apellidos').value.trim(),
+                username: document.getElementById('username').value.trim(),
+                telefono: document.getElementById('telefono').value.trim() || null,
+                email: document.getElementById('email').value.trim(),
+                idRol: parseInt(document.getElementById('id-rol').value, 10),
+                password: password || null,
+                activo: id === 0 ? true : document.getElementById('activo').checked
+            };
+
+            const method = id === 0 ? 'POST' : 'PUT';
+            const url = id === 0 ? `${apiBaseUrl}usuarios` : `${apiBaseUrl}usuarios/${id}`;
+
+            try {
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || `Error ${response.status}`);
+                }
+
+                closeModal();
+                await fetchUsers();
+            } catch (error) {
+                alert(`No se pudo guardar el usuario. ${error.message}`);
+            }
+        }
+
+        async function toggleUserStatus(id) {
+            const user = allUsers.find(item => item.idUsuario === id);
+            if (!user) {
+                return;
+            }
+
+            const action = user.activo ? 'inactivar' : 'activar';
+            if (!confirm(`Estas seguro que desea ${action} este usuario?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${apiBaseUrl}usuarios/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        idUsuario: user.idUsuario,
+                        nombres: user.nombres,
+                        apellidos: user.apellidos,
+                        username: user.username,
+                        telefono: user.telefono,
+                        email: user.email,
+                        idRol: user.idRol,
+                        password: null,
+                        activo: !user.activo
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || `Error ${response.status}`);
+                }
+
+                await fetchUsers();
+            } catch (error) {
+                alert(`No se pudo actualizar el estado. ${error.message}`);
+            }
+        }
+
+        function escapeHtml(value) {
+            return (value ?? '')
+                .toString()
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+        async function initPage() {
+            try {
+                await fetch(`${apiBaseUrl}usuarios/ensure-core-roles`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                await fetchRoles();
+                await fetchUsers();
+            } catch (error) {
+                console.error(error);
+                alert('No se pudo inicializar la administracion de usuarios.');
+            }
+        }
+
+        initPage();
+    </script>
+}

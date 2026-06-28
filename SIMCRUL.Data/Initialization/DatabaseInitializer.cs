@@ -17,7 +17,7 @@ public static class DatabaseInitializer
         await EnsureElChinoRouteAsync(context);
 
         // 1. Seed Roles
-        var requiredRoles = new[] { "Administrador", "Supervisor", "Operador", "Pasajero" };
+        var requiredRoles = new[] { "Administrador", "Supervisor", "Operador", "Conductor", "Pasajero" };
         foreach (var roleName in requiredRoles)
         {
             var exists = await context.Roles.AnyAsync(r => r.Nombre == roleName);
@@ -52,6 +52,26 @@ public static class DatabaseInitializer
                 FechaCreacion = DateTime.UtcNow
             };
             context.Usuarios.Add(adminUser);
+            await context.SaveChangesAsync();
+        }
+
+        var conductorRole = await context.Roles.FirstAsync(r => r.Nombre == "Conductor");
+        var hasDriverUser = await context.Usuarios.AnyAsync(u => u.IdRol == conductorRole.IdRol);
+        if (!hasDriverUser)
+        {
+            context.Usuarios.Add(new Usuario
+            {
+                Username = "conductor.demo",
+                Email = "conductor@simcrul.com",
+                Nombres = "Conductor",
+                Apellidos = "Demo",
+                Telefono = "900000001",
+                PasswordHash = ComputeHash("conductor123"),
+                IdRol = conductorRole.IdRol,
+                Activo = true,
+                FechaCreacion = DateTime.UtcNow
+            });
+
             await context.SaveChangesAsync();
         }
 

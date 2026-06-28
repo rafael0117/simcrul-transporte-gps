@@ -1,6 +1,6 @@
 @model SIMCRUL.Common.DTOs.Auth.LoginRequestDto
 @{
-    ViewData["Title"] = "Ingreso Operadores";
+    ViewData["Title"] = "Ingresar";
     var recaptchaEnabled = ViewBag.RecaptchaEnabled as bool? == true;
     var recaptchaSiteKey = ViewBag.RecaptchaSiteKey as string ?? string.Empty;
     var recaptchaAction = ViewBag.RecaptchaAction as string ?? "login";
@@ -18,6 +18,10 @@
             <i class="fa-solid fa-user-shield" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
             <h2>Ingreso al Sistema</h2>
             <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.25rem;">Plataforma de Monitoreo SIMCRUL</p>
+            <p style="color: var(--text-muted); font-size: 0.86rem; margin-top: 0.85rem;">
+                Todos los usuarios del sistema ingresan desde este mismo formulario
+                y el sistema los redirige automaticamente segun su rol.
+            </p>
         </div>
 
         <form asp-action="Login" method="post" class="modal-form recaptcha-login-form" style="gap: 1.5rem;">
@@ -26,7 +30,7 @@
 
             <div>
                 <label asp-for="UsernameOrEmail" class="form-label">Usuario o Correo</label>
-                <input asp-for="UsernameOrEmail" class="custom-input" placeholder="admin / operador" autocomplete="username" />
+                <input asp-for="UsernameOrEmail" class="custom-input" placeholder="usuario o correo" autocomplete="username" />
                 <span asp-validation-for="UsernameOrEmail" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem; display: block;"></span>
             </div>
 
@@ -54,8 +58,8 @@
         </div>
 
         <div style="margin-top: 1rem; text-align: center;">
-            <a asp-controller="Passenger" asp-action="Login" style="color: var(--secondary); font-weight: 600; text-decoration: none;">
-                <i class="fa-solid fa-bus-simple"></i> Ingreso para pasajeros
+            <a asp-controller="Passenger" asp-action="Register" style="color: var(--secondary); font-weight: 600; text-decoration: none;">
+                <i class="fa-solid fa-bus-simple"></i> Registro de pasajero
             </a>
         </div>
 

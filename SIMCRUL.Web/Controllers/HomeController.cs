@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
+using SIMCRUL.Common.Constants;
 using SIMCRUL.Common.DTOs.Auth;
 using SIMCRUL.Web.Infrastructure;
 using SIMCRUL.Web.Services;
@@ -18,7 +19,7 @@ public class HomeController : Controller
 
     public IActionResult Index()
     {
-        if (SessionAuthHelper.IsOperatorAuthenticated(HttpContext.Session))
+        if (SessionAuthHelper.IsBackofficeAuthenticated(HttpContext.Session))
         {
             return RedirectToAction("Index", "Passenger");
         }
@@ -26,6 +27,11 @@ public class HomeController : Controller
         if (SessionAuthHelper.IsPassengerAuthenticated(HttpContext.Session))
         {
             return RedirectToAction("Index", "Passenger");
+        }
+
+        if (SessionAuthHelper.IsDriverAuthenticated(HttpContext.Session))
+        {
+            return RedirectToAction("Tracking", "Conductores");
         }
 
         return View();
@@ -34,7 +40,7 @@ public class HomeController : Controller
     [HttpGet]
     public IActionResult Login()
     {
-        if (SessionAuthHelper.IsOperatorAuthenticated(HttpContext.Session))
+        if (SessionAuthHelper.IsBackofficeAuthenticated(HttpContext.Session))
         {
             return RedirectToAction("Index", "Passenger");
         }
@@ -42,6 +48,11 @@ public class HomeController : Controller
         if (SessionAuthHelper.IsPassengerAuthenticated(HttpContext.Session))
         {
             return RedirectToAction("Index", "Passenger");
+        }
+
+        if (SessionAuthHelper.IsDriverAuthenticated(HttpContext.Session))
+        {
+            return RedirectToAction("Tracking", "Conductores");
         }
 
         PopulateRecaptchaViewBag();
@@ -68,21 +79,26 @@ public class HomeController : Controller
                 HttpContext.Session.SetString("Nombres", response.Nombres);
                 HttpContext.Session.SetString("Apellidos", response.Apellidos);
 
-                if (string.Equals(response.Rol, "Pasajero", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(response.Rol, Roles.Pasajero, StringComparison.OrdinalIgnoreCase))
                 {
                     return RedirectToAction("Index", "Passenger");
+                }
+
+                if (string.Equals(response.Rol, Roles.Conductor, StringComparison.OrdinalIgnoreCase))
+                {
+                    return RedirectToAction("Tracking", "Conductores");
                 }
 
                 return RedirectToAction("Index", "Passenger");
             }
 
-            ModelState.AddModelError("", "Respuesta invÃ¡lida del servidor.");
+            ModelState.AddModelError("", "Respuesta invalida del servidor.");
             PopulateRecaptchaViewBag();
             return View(request);
         }
         catch (Exception ex)
         {
-            ModelState.AddModelError("", $"Error al iniciar sesiÃ³n: {ex.Message}");
+            ModelState.AddModelError("", $"Error al iniciar sesion: {ex.Message}");
             PopulateRecaptchaViewBag();
             return View(request);
         }
@@ -103,4 +119,3 @@ public class HomeController : Controller
         ViewBag.RecaptchaVersion = _configuration["Recaptcha:Version"] ?? "v2";
     }
 }
-

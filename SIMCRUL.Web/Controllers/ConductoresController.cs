@@ -19,9 +19,36 @@ public class ConductoresController : Controller
                 return RedirectToAction("Index", "Passenger");
             }
 
+            if (SessionAuthHelper.IsDriverAuthenticated(HttpContext.Session))
+            {
+                return RedirectToAction(nameof(Tracking));
+            }
+
             return RedirectToAction("Login", "Home");
         }
 
+        return View();
+    }
+
+    [HttpGet]
+    public IActionResult Tracking()
+    {
+        if (SessionAuthHelper.IsPassengerAuthenticated(HttpContext.Session))
+        {
+            return RedirectToAction("Index", "Passenger");
+        }
+
+        if (!SessionAuthHelper.IsDriverAuthenticated(HttpContext.Session))
+        {
+            if (SessionAuthHelper.IsBackofficeAuthenticated(HttpContext.Session))
+            {
+                return RedirectToAction(nameof(Index));
+            }
+
+            return RedirectToAction("Login", "Home");
+        }
+
+        ViewData["HideChrome"] = true;
         return View();
     }
 }

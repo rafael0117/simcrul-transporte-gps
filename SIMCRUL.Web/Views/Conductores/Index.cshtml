@@ -35,6 +35,7 @@
                 <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
                     <th style="padding: 1rem;">Nombre Completo</th>
                     <th style="padding: 1rem;">DNI</th>
+                    <th style="padding: 1rem;">Usuario Login</th>
                     <th style="padding: 1rem;">Licencia</th>
                     <th style="padding: 1rem; text-align: center;">Categoria</th>
                     <th style="padding: 1rem; text-align: center;">Vence Licencia</th>
@@ -45,7 +46,7 @@
             </thead>
             <tbody id="drivers-list">
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <td colspan="9" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                         <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block;"></i> Cargando conductores...
                     </td>
                 </tr>
@@ -87,6 +88,16 @@
                 <div>
                     <label class="form-label">Telefono</label>
                     <input type="text" id="telefono" class="custom-input" placeholder="Ej: 988776655" />
+                </div>
+            </div>
+
+            <div>
+                <label class="form-label">Usuario conductor vinculado</label>
+                <select id="id-usuario" class="custom-input">
+                    <option value="">-- Sin usuario vinculado --</option>
+                </select>
+                <div style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.82rem;">
+                    Solo los usuarios con rol <strong>Conductor</strong> pueden asociarse a este registro.
                 </div>
             </div>
 
@@ -188,6 +199,7 @@
         const token = '@Context.Session.GetString("Token")';
 
         let allDrivers = [];
+        let driverUsers = [];
 
         async function fetchDrivers() {
             const showDeleted = document.getElementById('show-deleted').checked;
@@ -202,18 +214,49 @@
                     allDrivers = await res.json();
                     renderTable(allDrivers);
                 } else {
-                    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--danger);">Error al cargar conductores (${res.status}).</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--danger);">Error al cargar conductores (${res.status}).</td></tr>`;
                 }
             } catch (err) {
                 console.error(err);
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--danger);">Falla de conexion con la API.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--danger);">Falla de conexion con la API.</td></tr>`;
             }
+        }
+
+        async function fetchDriverUsers() {
+            try {
+                const res = await fetch(`${apiBaseUrl}conductores/driver-users`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!res.ok) {
+                    throw new Error(`Error ${res.status}`);
+                }
+
+                driverUsers = await res.json();
+                renderDriverUsers();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderDriverUsers(currentDriverId = null) {
+            const select = document.getElementById('id-usuario');
+            select.innerHTML = '<option value="">-- Sin usuario vinculado --</option>';
+
+            driverUsers.forEach(user => {
+                const isTakenByAnotherDriver = user.asignado && user.idConductorAsignado !== currentDriverId;
+                const selectedLabel = isTakenByAnotherDriver
+                    ? `${user.username} - ${user.nombreCompleto} (asignado a conductor #${user.idConductorAsignado})`
+                    : `${user.username} - ${user.nombreCompleto}`;
+
+                select.innerHTML += `<option value="${user.idUsuario}" ${isTakenByAnotherDriver ? 'disabled' : ''}>${selectedLabel}</option>`;
+            });
         }
 
         function renderTable(list) {
             const tbody = document.getElementById('drivers-list');
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:3rem; color:var(--text-muted);">No se encontraron conductores.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:3rem; color:var(--text-muted);">No se encontraron conductores.</td></tr>`;
                 return;
             }
 
@@ -224,6 +267,11 @@
                 tr.innerHTML = `
                     <td style="padding:1rem; font-weight:700;">${driver.nombres} ${driver.apellidos}</td>
                     <td style="padding:1rem;">${driver.dni}</td>
+                    <td style="padding:1rem;">
+                        ${driver.usernameUsuario
+                            ? `<div style="font-weight:700;">${driver.usernameUsuario}</div><div style="font-size:0.8rem; color:var(--text-secondary);">${driver.nombreUsuario || ''}</div>`
+                            : '<span style="color:var(--warning);">Sin vincular</span>'}
+                    </td>
                     <td style="padding:1rem; font-family:monospace; color:var(--text-secondary);">${driver.numeroLicencia}</td>
                     <td style="padding:1rem; text-align:center;"><span style="font-size:0.85rem; background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:4px;">${driver.categoriaLicencia}</span></td>
                     <td style="padding:1rem; text-align:center;">${venceDate}</td>
@@ -253,7 +301,8 @@
                 driver.nombres.toLowerCase().includes(query) ||
                 driver.apellidos.toLowerCase().includes(query) ||
                 driver.dni.includes(query) ||
-                driver.numeroLicencia.toLowerCase().includes(query)
+                driver.numeroLicencia.toLowerCase().includes(query) ||
+                (driver.usernameUsuario || '').toLowerCase().includes(query)
             );
 
             renderTable(filtered);
@@ -269,6 +318,7 @@
                 document.getElementById('driver-form').reset();
                 document.getElementById('driver-id').value = '0';
                 document.getElementById('estado').checked = true;
+                renderDriverUsers();
             }
         }
 
@@ -288,6 +338,8 @@
             document.getElementById('apellidos').value = driver.apellidos;
             document.getElementById('dni').value = driver.dni;
             document.getElementById('telefono').value = driver.telefono || '';
+            renderDriverUsers(driver.idConductor);
+            document.getElementById('id-usuario').value = driver.idUsuario || '';
             document.getElementById('num-licencia').value = driver.numeroLicencia;
             document.getElementById('cat-licencia').value = driver.categoriaLicencia;
             document.getElementById('vence-licencia').value = new Date(driver.fechaVencimientoLicencia).toISOString().split('T')[0];
@@ -302,6 +354,7 @@
 
             const payload = {
                 idConductor: id,
+                idUsuario: document.getElementById('id-usuario').value ? parseInt(document.getElementById('id-usuario').value, 10) : null,
                 nombres: document.getElementById('nombres').value,
                 apellidos: document.getElementById('apellidos').value,
                 dni: document.getElementById('dni').value,
@@ -327,7 +380,7 @@
 
                 if (res.ok) {
                     closeModal();
-                    fetchDrivers();
+                    await Promise.all([fetchDrivers(), fetchDriverUsers()]);
                 } else {
                     const err = await res.json();
                     alert(`Error al guardar: ${err.message || 'Intente nuevamente'}`);
@@ -362,7 +415,7 @@
                 });
 
                 if (res.ok) {
-                    fetchDrivers();
+                    await Promise.all([fetchDrivers(), fetchDriverUsers()]);
                 } else {
                     const err = await res.json();
                     alert(`Error al actualizar el estado: ${err.message || 'Intente nuevamente'}`);
@@ -372,6 +425,6 @@
             }
         }
 
-        fetchDrivers();
+        Promise.all([fetchDrivers(), fetchDriverUsers()]);
     </script>
 }

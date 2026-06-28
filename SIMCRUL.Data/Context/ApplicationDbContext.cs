@@ -105,6 +105,17 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey(c => c.IdEmpresa)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<Conductor>()
+            .HasOne(c => c.Usuario)
+            .WithMany()
+            .HasForeignKey(c => c.IdUsuario)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Conductor>()
+            .HasIndex(c => c.IdUsuario)
+            .IsUnique()
+            .HasFilter("[id_usuario] IS NOT NULL");
+
         modelBuilder.Entity<Vehiculo>()
             .HasOne(v => v.EmpresaTransporte)
             .WithMany(e => e.Vehiculos)
