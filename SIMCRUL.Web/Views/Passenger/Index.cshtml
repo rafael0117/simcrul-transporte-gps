@@ -4,8 +4,6 @@
     var googleMapsApiKey = Configuration["GoogleMaps:ApiKey"] ?? string.Empty;
     var useGoogleMaps = bool.TryParse(Configuration["GoogleMaps:UseGoogleMaps"], out var enabled) && enabled;
     var hasGoogleMapsKey = !string.IsNullOrWhiteSpace(googleMapsApiKey);
-    var hasPassengerSession = !string.IsNullOrWhiteSpace(Context.Session.GetString("Token"));
-    var passengerName = Context.Session.GetString("Nombres") ?? Context.Session.GetString("Username") ?? "pasajero";
 }
 
 <div class="dashboard-layout dashboard-shell" style="height: calc(100vh - 120px); grid-template-columns: 400px 1fr;">
@@ -37,65 +35,13 @@
                 }
             </div>
 
-            <div class="glass-card" style="margin-top: 1rem; padding: 1rem; border-radius: 12px; background: rgba(15, 23, 42, 0.55); border-color: rgba(148, 163, 184, 0.18); display: flex; flex-direction: column; gap: 0.85rem;">
-                <div class="info-row">
-                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Acciones privadas</span>
-                    <strong style="font-size: 0.9rem; color: @(hasPassengerSession ? "var(--success)" : "var(--warning)")">
-                        @(hasPassengerSession ? $"Sesion activa: {passengerName}" : "Requiere cuenta")
-                    </strong>
-                </div>
-                <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
-                    La consulta del mapa es publica. Para descargar todas las rutas en PDF y registrar reclamos o peticiones, el pasajero debe registrarse e iniciar sesion.
-                </div>
-                <div class="panel-actions" style="gap: 0.6rem; flex-wrap: wrap;">
-                    @if (hasPassengerSession)
-                    {
-                        <a asp-controller="Passenger" asp-action="DownloadRoutesPdf" class="btn-primary" style="flex: 1 1 180px; text-align: center; padding: 0.7rem; border-radius: 8px;">
-                            <i class="fa-solid fa-file-pdf"></i> Descargar rutas PDF
-                        </a>
-                        <a asp-controller="Passenger" asp-action="Requests" class="btn-primary" style="flex: 1 1 180px; text-align: center; padding: 0.7rem; border-radius: 8px; background: var(--secondary);">
-                            <i class="fa-solid fa-envelope-open-text"></i> Reclamos y peticiones
-                        </a>
-                    }
-                    else
-                    {
-                        <a asp-controller="Passenger" asp-action="Login" asp-route-returnUrl="@Url.Action("Requests", "Passenger")" class="btn-primary" style="flex: 1 1 180px; text-align: center; padding: 0.7rem; border-radius: 8px;">
-                            <i class="fa-solid fa-arrow-right-to-bracket"></i> Iniciar sesion
-                        </a>
-                        <a asp-controller="Passenger" asp-action="Register" asp-route-returnUrl="@Url.Action("Requests", "Passenger")" class="btn-primary" style="flex: 1 1 180px; text-align: center; padding: 0.7rem; border-radius: 8px; background: var(--secondary);">
-                            <i class="fa-solid fa-user-plus"></i> Crear cuenta
-                        </a>
-                    }
-                </div>
-            </div>
-
             <div class="glass-card" style="margin-top: 1rem; padding: 1rem; border-radius: 12px; background: rgba(16, 185, 129, 0.06); border-color: rgba(16, 185, 129, 0.18); display: flex; flex-direction: column; gap: 0.85rem;">
                 <div class="info-row">
-                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Demo GPS en vivo</span>
-                    <strong id="demo-status-label" style="font-size: 0.9rem; color: #f59e0b;">DETENIDA</strong>
+                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Telemetria activa en esta ruta</span>
+                    <strong id="route-bus-count" style="font-size: 0.9rem; color: var(--success);">0 buses</strong>
                 </div>
-                <div class="info-row" style="font-size: 0.82rem;">
-                    <span style="color: var(--text-secondary);">Buses simulados</span>
-                    <strong id="demo-bus-count" style="color: var(--secondary);">0</strong>
-                </div>
-                <div class="info-row" style="font-size: 0.82rem;">
-                    <span style="color: var(--text-secondary);">Rutas activas</span>
-                    <strong id="demo-route-count" style="color: var(--primary);">0</strong>
-                </div>
-                <div class="info-row" style="font-size: 0.82rem;">
-                    <span style="color: var(--text-secondary);">Buses en esta ruta</span>
-                    <strong id="route-bus-count" style="color: var(--primary);">0</strong>
-                </div>
-                <div class="panel-actions" style="gap: 0.6rem;">
-                    <button id="btn-start-demo" type="button" onclick="startDemoSimulation()" class="btn-primary" style="flex: 1; padding: 0.65rem; border-radius: 8px; background: var(--success);">
-                        <i class="fa-solid fa-play"></i> Iniciar demo
-                    </button>
-                    <button id="btn-stop-demo" type="button" onclick="stopDemoSimulation()" class="btn-primary" style="flex: 1; padding: 0.65rem; border-radius: 8px; background: var(--danger);" disabled>
-                        <i class="fa-solid fa-square"></i> Detener
-                    </button>
-                </div>
-                <div id="demo-status-note" style="font-size: 0.78rem; color: var(--text-muted);">
-                    Inicia la demo para ver varias unidades moviendose en tiempo real sobre las rutas.
+                <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;">
+                    El monitoreo se actualiza automaticamente con las posiciones reportadas por la flota. Selecciona una ruta para ver sus unidades activas en el mapa.
                 </div>
             </div>
         </div>
@@ -320,76 +266,9 @@
             }
         }
 
-        function setSimulationStatus(status) {
-            const isRunning = !!status?.isRunning;
-            document.getElementById('demo-status-label').textContent = isRunning ? 'ACTIVA' : 'DETENIDA';
-            document.getElementById('demo-status-label').style.color = isRunning ? 'var(--success)' : '#f59e0b';
-            document.getElementById('demo-bus-count').textContent = status?.vehiculosSimulados ?? 0;
-            document.getElementById('demo-route-count').textContent = status?.rutasSimuladas ?? 0;
-            document.getElementById('btn-start-demo').disabled = isRunning;
-            document.getElementById('btn-stop-demo').disabled = !isRunning;
-
-            const lastTickText = status?.lastTelemetryAtUtc
-                ? new Date(status.lastTelemetryAtUtc).toLocaleTimeString()
-                : null;
-
-            document.getElementById('demo-status-note').textContent = isRunning
-                ? `La simulacion esta emitiendo telemetria cada ${status.intervalSeconds} s${lastTickText ? `, ultimo envio ${lastTickText}.` : '.'}`
-                : 'Inicia la demo para ver varias unidades moviendose en tiempo real sobre las rutas.';
-        }
-
-        async function fetchSimulationStatus() {
-            try {
-                const response = await fetch(`${apiBaseUrl}simulation/status`);
-                if (!response.ok) {
-                    return;
-                }
-
-                const status = await response.json();
-                setSimulationStatus(status);
-            } catch (error) {
-                console.error(error);
-            }
-        }
-
-        async function startDemoSimulation() {
-            try {
-                const response = await fetch(`${apiBaseUrl}simulation/start-demo?intervalSeconds=3`, {
-                    method: 'POST'
-                });
-                const payload = await response.json();
-                if (!response.ok) {
-                    document.getElementById('demo-status-note').textContent = payload.message || 'No se pudo iniciar la demo.';
-                    return;
-                }
-
-                setSimulationStatus(payload);
-                if (selectedRouteId) {
-                    await fetchActiveBusesForRoute(selectedRouteId);
-                }
-            } catch (error) {
-                console.error(error);
-            }
-        }
-
-        async function stopDemoSimulation() {
-            try {
-                const response = await fetch(`${apiBaseUrl}simulation/stop-demo`, {
-                    method: 'POST'
-                });
-                if (!response.ok) {
-                    return;
-                }
-
-                const payload = await response.json();
-                setSimulationStatus(payload);
-            } catch (error) {
-                console.error(error);
-            }
-        }
-
         function updateRouteBusCount() {
-            document.getElementById('route-bus-count').textContent = Object.keys(busMarkers).length;
+            const total = Object.keys(busMarkers).length;
+            document.getElementById('route-bus-count').textContent = `${total} bus${total === 1 ? '' : 'es'}`;
         }
 
         function animateCoordinateTransition(from, to, onUpdate, durationMs = 2200) {
@@ -942,9 +821,7 @@
         async function bootstrapPassengerMap() {
             await initializeMap();
             await fetchRoutes();
-            await fetchSimulationStatus();
             await startSignalR();
-            setInterval(fetchSimulationStatus, 10000);
         }
 
         bootstrapPassengerMap();

@@ -10,6 +10,10 @@ namespace SIMCRUL.Business.Services;
 
 public class FleetSimulationService : IFleetSimulationService
 {
+    private const string NormalEvent = "NORMAL";
+    private const string SpeedEvent = "VELOCIDAD";
+    private const string RouteDeviationEvent = "DESVIO";
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<FleetSimulationService> _logger;
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
@@ -192,7 +196,9 @@ public class FleetSimulationService : IFleetSimulationService
                 RouteName = assignment.Ruta.NombreRuta,
                 VehicleId = assignment.IdVehiculo,
                 VehiclePlate = assignment.Vehiculo.Placa,
+                RouteSpeedLimitKmh = (double)assignment.Ruta.VelocidadMaximaKmh,
                 CurrentPointIndex = startIndex,
+                TicksUntilEvent = Random.Shared.Next(5, 11),
                 Points = controlPoints.Select(point => new SimulationCoordinate(
                     (double)point.Latitud,
                     (double)point.Longitud)).ToList()
@@ -235,16 +241,16 @@ public class FleetSimulationService : IFleetSimulationService
 
             foreach (var vehicle in _vehicles)
             {
-                var point = vehicle.Points[vehicle.CurrentPointIndex];
+                var snapshot = BuildTelemetrySnapshot(vehicle);
                 payloads.Add(new TelemetryDto
                 {
                     Imei = vehicle.Imei,
-                    Latitud = point.Latitude,
-                    Longitud = point.Longitude,
-                    VelocidadKmh = Random.Shared.Next(38, 56),
+                    Latitud = snapshot.Latitude,
+                    Longitud = snapshot.Longitude,
+                    VelocidadKmh = snapshot.SpeedKmh,
                     RumboGrados = Random.Shared.Next(0, 359),
                     PrecisionMetros = 4,
-                    EventoForzado = "NORMAL"
+                    EventoForzado = snapshot.EventCode
                 });
 
                 vehicle.CurrentPointIndex = (vehicle.CurrentPointIndex + 1) % vehicle.Points.Count;
@@ -297,6 +303,107 @@ public class FleetSimulationService : IFleetSimulationService
         };
     }
 
+    private static TelemetrySnapshot BuildTelemetrySnapshot(SimulatedVehicleState vehicle)
+    {
+        var currentPoint = vehicle.Points[vehicle.CurrentPointIndex];
+        var nextPoint = vehicle.Points[(vehicle.CurrentPointIndex + 1) % vehicle.Points.Count];
+
+        UpdateEventState(vehicle);
+
+        var latitude = currentPoint.Latitude;
+        var longitude = currentPoint.Longitude;
+        var speedKmh = Random.Shared.Next(38, 56);
+        var eventCode = NormalEvent;
+
+        if (vehicle.ActiveEventCode == SpeedEvent)
+        {
+            var minimumSpeed = (int)Math.Ceiling(vehicle.RouteSpeedLimitKmh + 8);
+            speedKmh = Math.Max(minimumSpeed, Random.Shared.Next(65, 92));
+            eventCode = SpeedEvent;
+        }
+        else if (vehicle.ActiveEventCode == RouteDeviationEvent)
+        {
+            var deviatedPoint = OffsetFromRoute(
+                currentPoint,
+                nextPoint,
+                vehicle.RouteDeviationOffsetMeters,
+                vehicle.RouteDeviationSide);
+
+            latitude = deviatedPoint.Latitude;
+            longitude = deviatedPoint.Longitude;
+            speedKmh = Math.Max(22, Random.Shared.Next(28, 45));
+            eventCode = RouteDeviationEvent;
+        }
+
+        return new TelemetrySnapshot(latitude, longitude, speedKmh, eventCode);
+    }
+
+    private static void UpdateEventState(SimulatedVehicleState vehicle)
+    {
+        if (vehicle.ActiveEventTicksRemaining > 0)
+        {
+            vehicle.ActiveEventTicksRemaining--;
+            if (vehicle.ActiveEventTicksRemaining == 0)
+            {
+                vehicle.ActiveEventCode = NormalEvent;
+                vehicle.TicksUntilEvent = Random.Shared.Next(6, 12);
+            }
+
+            return;
+        }
+
+        if (vehicle.TicksUntilEvent > 0)
+        {
+            vehicle.TicksUntilEvent--;
+            return;
+        }
+
+        var nextEventCode = Random.Shared.NextDouble() < 0.5 ? SpeedEvent : RouteDeviationEvent;
+        vehicle.ActiveEventCode = nextEventCode;
+        vehicle.ActiveEventTicksRemaining = nextEventCode == SpeedEvent
+            ? Random.Shared.Next(2, 5)
+            : Random.Shared.Next(3, 6);
+        vehicle.TicksUntilEvent = Random.Shared.Next(8, 14);
+        vehicle.RouteDeviationOffsetMeters = Random.Shared.Next(180, 320);
+        vehicle.RouteDeviationSide = Random.Shared.Next(0, 2) == 0 ? -1 : 1;
+
+        vehicle.ActiveEventTicksRemaining--;
+        if (vehicle.ActiveEventTicksRemaining == 0)
+        {
+            vehicle.ActiveEventCode = NormalEvent;
+        }
+    }
+
+    private static SimulationCoordinate OffsetFromRoute(
+        SimulationCoordinate currentPoint,
+        SimulationCoordinate nextPoint,
+        double offsetMeters,
+        int direction)
+    {
+        var deltaLongitude = nextPoint.Longitude - currentPoint.Longitude;
+        var deltaLatitude = nextPoint.Latitude - currentPoint.Latitude;
+        var vectorLength = Math.Sqrt((deltaLongitude * deltaLongitude) + (deltaLatitude * deltaLatitude));
+
+        if (vectorLength < 0.000001d)
+        {
+            vectorLength = 1d;
+            deltaLatitude = 1d;
+            deltaLongitude = 0d;
+        }
+
+        var perpendicularLongitude = (-deltaLatitude / vectorLength) * direction;
+        var perpendicularLatitude = (deltaLongitude / vectorLength) * direction;
+
+        var metersPerDegreeLatitude = 111_320d;
+        var metersPerDegreeLongitude = Math.Max(
+            1d,
+            111_320d * Math.Cos(currentPoint.Latitude * Math.PI / 180d));
+
+        return new SimulationCoordinate(
+            currentPoint.Latitude + ((perpendicularLatitude * offsetMeters) / metersPerDegreeLatitude),
+            currentPoint.Longitude + ((perpendicularLongitude * offsetMeters) / metersPerDegreeLongitude));
+    }
+
     private sealed class SimulatedVehicleState
     {
         public string Imei { get; set; } = string.Empty;
@@ -305,9 +412,16 @@ public class FleetSimulationService : IFleetSimulationService
         public string RouteName { get; set; } = string.Empty;
         public int VehicleId { get; set; }
         public string VehiclePlate { get; set; } = string.Empty;
+        public double RouteSpeedLimitKmh { get; set; }
         public int CurrentPointIndex { get; set; }
+        public int TicksUntilEvent { get; set; }
+        public int ActiveEventTicksRemaining { get; set; }
+        public string ActiveEventCode { get; set; } = NormalEvent;
+        public double RouteDeviationOffsetMeters { get; set; }
+        public int RouteDeviationSide { get; set; } = 1;
         public List<SimulationCoordinate> Points { get; set; } = new();
     }
 
+    private sealed record TelemetrySnapshot(double Latitude, double Longitude, double SpeedKmh, string EventCode);
     private sealed record SimulationCoordinate(double Latitude, double Longitude);
 }

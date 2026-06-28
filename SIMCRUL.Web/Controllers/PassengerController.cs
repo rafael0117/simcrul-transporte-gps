@@ -113,9 +113,10 @@ public class PassengerController : Controller
     [HttpGet]
     public async Task<IActionResult> Requests()
     {
-        if (!SessionAuthHelper.IsAuthenticated(HttpContext.Session))
+        var accessRedirect = EnsurePassengerAccess(nameof(Requests));
+        if (accessRedirect != null)
         {
-            return RedirectToAction(nameof(Login), new { returnUrl = Url.Action(nameof(Requests), "Passenger") });
+            return accessRedirect;
         }
 
         var model = await BuildRequestsPageViewModelAsync();
@@ -126,9 +127,10 @@ public class PassengerController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateRequest(PassengerRequestCreateDto form)
     {
-        if (!SessionAuthHelper.IsAuthenticated(HttpContext.Session))
+        var accessRedirect = EnsurePassengerAccess(nameof(Requests));
+        if (accessRedirect != null)
         {
-            return RedirectToAction(nameof(Login), new { returnUrl = Url.Action(nameof(Requests), "Passenger") });
+            return accessRedirect;
         }
 
         if (!ModelState.IsValid)
@@ -154,9 +156,10 @@ public class PassengerController : Controller
     [HttpGet]
     public async Task<IActionResult> DownloadRoutesPdf()
     {
-        if (!SessionAuthHelper.IsAuthenticated(HttpContext.Session))
+        var accessRedirect = EnsurePassengerAccess(nameof(DownloadRoutesPdf));
+        if (accessRedirect != null)
         {
-            return RedirectToAction(nameof(Login), new { returnUrl = Url.Action(nameof(DownloadRoutesPdf), "Passenger") });
+            return accessRedirect;
         }
 
         var bytes = await _apiClient.GetBytesAsync("Report/routes-pdf");
@@ -208,5 +211,20 @@ public class PassengerController : Controller
         }
 
         return RedirectToAction(defaultAction);
+    }
+
+    private IActionResult? EnsurePassengerAccess(string returnAction)
+    {
+        if (!SessionAuthHelper.IsAuthenticated(HttpContext.Session))
+        {
+            return RedirectToAction(nameof(Login), new { returnUrl = Url.Action(returnAction, "Passenger") });
+        }
+
+        if (!SessionAuthHelper.IsPassengerAuthenticated(HttpContext.Session))
+        {
+            return RedirectToAction(nameof(Index));
+        }
+
+        return null;
     }
 }

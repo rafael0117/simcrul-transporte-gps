@@ -6,6 +6,7 @@ using SIMCRUL.Business.Hubs;
 using SIMCRUL.Business.Interfaces;
 using SIMCRUL.Business.Security;
 using SIMCRUL.Business.Services;
+using SIMCRUL.API.Services;
 using SIMCRUL.Data.Context;
 using SIMCRUL.Data.Initialization;
 using System.Text;
@@ -65,6 +66,7 @@ builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<IGpsProcessingService, GpsProcessingService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddSingleton<IFleetSimulationService, FleetSimulationService>();
+builder.Services.AddHostedService<SimulationStartupService>();
 
 // 5. Real-Time and Web APIs
 builder.Services.AddSignalR();

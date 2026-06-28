@@ -31,7 +31,7 @@ public class DashboardController : Controller
     public IActionResult Index()
     {
         if (!IsAuthorized()) return RedirectUnauthorized();
-        return View();
+        return RedirectToAction("Index", "Passenger");
     }
 
     public IActionResult Simulator()

@@ -22,6 +22,6 @@ public class AuditoriaController : Controller
             return RedirectToAction("Login", "Home");
         }
 
-        return View();
+        return RedirectToAction("Index", "Passenger");
     }
 }

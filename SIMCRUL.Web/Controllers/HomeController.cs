@@ -16,6 +16,16 @@ public class HomeController : Controller
 
     public IActionResult Index()
     {
+        if (SessionAuthHelper.IsOperatorAuthenticated(HttpContext.Session))
+        {
+            return RedirectToAction("Index", "Passenger");
+        }
+
+        if (SessionAuthHelper.IsPassengerAuthenticated(HttpContext.Session))
+        {
+            return RedirectToAction("Index", "Passenger");
+        }
+
         return View();
     }
 
@@ -24,7 +34,7 @@ public class HomeController : Controller
     {
         if (SessionAuthHelper.IsOperatorAuthenticated(HttpContext.Session))
         {
-            return RedirectToAction("Index", "Dashboard");
+            return RedirectToAction("Index", "Passenger");
         }
 
         if (SessionAuthHelper.IsPassengerAuthenticated(HttpContext.Session))
@@ -59,7 +69,7 @@ public class HomeController : Controller
                     return RedirectToAction("Index", "Passenger");
                 }
 
-                return RedirectToAction("Index", "Dashboard");
+                return RedirectToAction("Index", "Passenger");
             }
 
             ModelState.AddModelError("", "Respuesta inválida del servidor.");
