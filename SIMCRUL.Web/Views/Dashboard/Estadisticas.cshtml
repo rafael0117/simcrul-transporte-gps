@@ -1,0 +1,753 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    ViewData["Title"] = "Consultar estadisticas operativas";
+}
+
+<section class="ops-dashboard">
+    <div class="ops-header">
+        <div>
+            <span class="ops-kicker">Sistema Web Inteligente de Monitoreo y Control de Rutas</span>
+            <h1>Consultar estadisticas operativas</h1>
+        </div>
+        <div class="ops-contact"><i class="fa-solid fa-phone"></i> 980 793 614</div>
+    </div>
+
+    <div class="ops-filter glass-card">
+        <div>
+            <label class="form-label" for="date-from">Desde</label>
+            <input class="custom-input" type="date" id="date-from" />
+        </div>
+        <div>
+            <label class="form-label" for="date-to">Hasta</label>
+            <input class="custom-input" type="date" id="date-to" />
+        </div>
+        <div>
+            <label class="form-label" for="route-filter">Ruta</label>
+            <select class="custom-input" id="route-filter">
+                <option value="">Todas</option>
+            </select>
+        </div>
+        <button class="btn-primary ops-filter-button" type="button" onclick="loadOperationalDashboard()">
+            <i class="fa-solid fa-filter"></i> Filtrar
+        </button>
+    </div>
+
+    <div class="ops-workspace">
+        <aside class="ops-alerts glass-card">
+            <div class="ops-alerts-header">
+                <div>
+                    <span class="ops-kicker">Notificaciones</span>
+                    <h2>Alertas operativas</h2>
+                </div>
+                <span class="ops-alert-count" id="alerts-count">0</span>
+            </div>
+            <div id="alerts-feed" class="ops-alert-feed">
+                <div class="ops-empty-alert">Sin alertas para el filtro seleccionado.</div>
+            </div>
+        </aside>
+
+        <div class="ops-stat-area">
+            <div class="ops-card-grid">
+                <button class="ops-card glass-card" type="button" onclick="openOperationalDetail('distancia')">
+                    <span>Distancia recorrida</span>
+                    <strong id="distance-kpi">0 km</strong>
+                    <i class="fa-solid fa-road"></i>
+                </button>
+                <button class="ops-card glass-card" type="button" onclick="openOperationalDetail('tiempo')">
+                    <span>Tiempo operativo</span>
+                    <strong id="time-kpi">0 h</strong>
+                    <i class="fa-regular fa-clock"></i>
+                </button>
+                <button class="ops-card glass-card" type="button" onclick="openOperationalDetail('velocidad')">
+                    <span>Excesos de velocidad</span>
+                    <strong id="speed-kpi">0</strong>
+                    <i class="fa-solid fa-gauge-high"></i>
+                </button>
+                <button class="ops-card glass-card" type="button" onclick="openOperationalDetail('desvio')">
+                    <span>Desvios de ruta</span>
+                    <strong id="deviation-kpi">0</strong>
+                    <i class="fa-solid fa-map-location-dot"></i>
+                </button>
+                <button class="ops-card glass-card" type="button" onclick="openOperationalDetail('reclamos')">
+                    <span>Reclamos recibidos</span>
+                    <strong id="claims-kpi">0</strong>
+                    <i class="fa-regular fa-comments"></i>
+                </button>
+            </div>
+
+            <div class="ops-main-grid">
+                <div class="ops-panel glass-card">
+                    <h2>Excesos de velocidad por dia</h2>
+                    <div id="speed-chart" class="ops-bars"></div>
+                </div>
+                <div class="ops-panel glass-card">
+                    <h2>Unidades activas por hora</h2>
+                    <div id="hour-chart" class="ops-bars"></div>
+                </div>
+            </div>
+
+            <div class="ops-summary glass-card">
+                <h2>Resumen general</h2>
+                <p id="summary-text">Seleccione un rango de fechas para consultar las estadisticas.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="modal-overlay" id="ops-detail-modal">
+    <div class="modal-card modal-card-lg glass-card ops-modal-card">
+        <div class="modal-header">
+            <div>
+                <span class="ops-kicker" id="detail-kicker">Bitacora</span>
+                <h2 id="detail-title">Detalle operativo</h2>
+            </div>
+            <button class="ops-icon-button" type="button" onclick="closeOperationalDetail()" aria-label="Cerrar">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="detail-highlight" class="ops-highlight"></div>
+        <div class="responsive-table-card ops-detail-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Empresa</th>
+                        <th>Vehiculo</th>
+                        <th>Ruta</th>
+                        <th>Dato</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="detail-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .ops-dashboard {
+            max-width: 1280px;
+            margin: 1.5rem auto 3rem;
+            padding: 0 1.5rem;
+        }
+
+        .ops-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .ops-header h1 {
+            font-size: 1.65rem;
+            margin: 0.25rem 0 0;
+        }
+
+        .ops-kicker {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .ops-contact {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.65rem 1rem;
+            background: rgba(255,255,255,0.04);
+            white-space: nowrap;
+        }
+
+        .ops-filter {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(170px, 1fr)) auto;
+            gap: 1rem;
+            align-items: end;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .ops-filter-button {
+            border-radius: 8px;
+            height: 47px;
+        }
+
+        .ops-card-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        .ops-workspace {
+            display: grid;
+            grid-template-columns: 310px minmax(0, 1fr);
+            gap: 1rem;
+            align-items: start;
+        }
+
+        .ops-alerts {
+            border-radius: 8px;
+            padding: 1rem;
+            position: sticky;
+            top: 92px;
+            max-height: calc(100vh - 120px);
+            overflow: hidden;
+        }
+
+        .ops-alerts-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 0.9rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .ops-alerts-header h2 {
+            font-size: 1rem;
+            margin: 0.2rem 0 0;
+        }
+
+        .ops-alert-count {
+            min-width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            color: white;
+            background: var(--danger);
+            font-weight: 800;
+        }
+
+        .ops-alert-feed {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: calc(100vh - 210px);
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+
+        .ops-alert-note {
+            border: 1px solid rgba(255,255,255,0.1);
+            border-left: 5px solid var(--warning);
+            border-radius: 8px;
+            padding: 0.85rem;
+            background: rgba(255,255,255,0.045);
+        }
+
+        .ops-alert-note.speed {
+            border-left-color: var(--danger);
+            background: rgba(239, 68, 68, 0.12);
+        }
+
+        .ops-alert-note.deviation {
+            border-left-color: var(--warning);
+            background: rgba(245, 158, 11, 0.11);
+        }
+
+        .ops-alert-note.panic {
+            border-left-color: #f43f5e;
+            background: rgba(244, 63, 94, 0.16);
+        }
+
+        .ops-alert-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.7rem;
+            margin-bottom: 0.45rem;
+            font-weight: 800;
+        }
+
+        .ops-alert-title i {
+            color: var(--danger);
+        }
+
+        .ops-alert-message {
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            line-height: 1.35;
+        }
+
+        .ops-alert-meta {
+            margin-top: 0.55rem;
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .ops-empty-alert {
+            color: var(--text-secondary);
+            text-align: center;
+            padding: 2rem 0.5rem;
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+        }
+
+        .ops-card {
+            min-height: 104px;
+            border-radius: 8px;
+            color: var(--text-primary);
+            text-align: left;
+            padding: 1rem;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+
+        .ops-card span {
+            grid-column: 1 / -1;
+            color: var(--text-secondary);
+            font-weight: 700;
+            font-size: 0.88rem;
+        }
+
+        .ops-card strong {
+            font-size: 1.55rem;
+            align-self: end;
+        }
+
+        .ops-card i {
+            font-size: 1.9rem;
+            color: var(--primary);
+            align-self: end;
+        }
+
+        .ops-main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .ops-panel,
+        .ops-summary {
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .ops-panel h2,
+        .ops-summary h2 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .ops-bars {
+            height: 220px;
+            display: grid;
+            grid-auto-flow: column;
+            grid-auto-columns: 1fr;
+            align-items: end;
+            gap: 0.65rem;
+            border-left: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1.7rem 0.7rem 1.9rem;
+            position: relative;
+            background:
+                linear-gradient(to top, rgba(255,255,255,0.06) 1px, transparent 1px) 0 0 / 100% 25%;
+        }
+
+        .ops-bar {
+            min-width: 18px;
+            background: linear-gradient(180deg, var(--primary), #0f766e);
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            justify-self: stretch;
+            transition: height 0.2s ease;
+        }
+
+        .ops-bar-zero {
+            background: rgba(148, 163, 184, 0.28);
+        }
+
+        .ops-bar span {
+            position: absolute;
+            left: 50%;
+            bottom: -1.35rem;
+            transform: translateX(-50%);
+            color: var(--text-secondary);
+            font-size: 0.72rem;
+        }
+
+        .ops-bar strong {
+            position: absolute;
+            left: 50%;
+            top: -1.35rem;
+            transform: translateX(-50%);
+            color: var(--text-primary);
+            font-size: 0.74rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .ops-bar-empty-note {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            pointer-events: none;
+            font-weight: 600;
+        }
+
+        .ops-highlight {
+            background: rgba(6, 182, 212, 0.1);
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            border-radius: 8px;
+            color: var(--text-primary);
+            padding: 0.85rem;
+        }
+
+        .ops-icon-button {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 1px solid var(--border-color);
+            background: rgba(255,255,255,0.06);
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .ops-modal-card {
+            max-width: 1080px;
+        }
+
+        .ops-detail-table {
+            max-height: 52vh;
+            overflow: auto;
+        }
+
+        .ops-detail-table th,
+        .ops-detail-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        .ops-detail-table th {
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+        }
+
+        @@media (max-width: 1100px) {
+            .ops-card-grid,
+            .ops-main-grid,
+            .ops-filter,
+            .ops-workspace {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .ops-workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .ops-alerts {
+                position: static;
+                max-height: none;
+            }
+
+            .ops-alert-feed {
+                max-height: 320px;
+            }
+        }
+
+        @@media (max-width: 720px) {
+            .ops-header,
+            .ops-filter,
+            .ops-card-grid,
+            .ops-main-grid {
+                grid-template-columns: 1fr;
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+}
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    <script>
+        const opsApiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
+        const opsSignalrUrl = '@Configuration["ApiSettings:SignalrUrl"]';
+        const metricTitles = {
+            distancia: 'Distancia recorrida',
+            tiempo: 'Tiempo operativo',
+            velocidad: 'Excesos de velocidad',
+            desvio: 'Desvios de ruta',
+            reclamos: 'Reclamos recibidos'
+        };
+        let currentSummary = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const today = new Date();
+            const weekAgo = new Date();
+            weekAgo.setDate(today.getDate() - 7);
+            document.getElementById('date-from').value = toIsoDate(weekAgo);
+            document.getElementById('date-to').value = toIsoDate(today);
+            await loadRouteOptions();
+            await loadOperationalDashboard();
+            startOperationalAlertsRealtime();
+            setInterval(loadOperationalAlerts, 30000);
+        });
+
+        function toIsoDate(date) {
+            return date.toISOString().slice(0, 10);
+        }
+
+        function queryString() {
+            const from = document.getElementById('date-from').value;
+            const to = document.getElementById('date-to').value;
+            const routeId = document.getElementById('route-filter').value;
+            const params = new URLSearchParams({ dateFrom: from, dateTo: to });
+            if (routeId) params.append('routeId', routeId);
+            return params.toString();
+        }
+
+        async function loadRouteOptions() {
+            const response = await fetch(`${opsApiBaseUrl}dashboard/route-options`);
+            if (!response.ok) return;
+            const routes = await response.json();
+            const select = document.getElementById('route-filter');
+            routes.forEach(route => {
+                const option = document.createElement('option');
+                option.value = route.idRuta;
+                option.textContent = `${route.codigoRuta} - ${route.nombreRuta}`;
+                select.appendChild(option);
+            });
+        }
+
+        async function loadOperationalDashboard() {
+            const response = await fetch(`${opsApiBaseUrl}dashboard/operational-summary?${queryString()}`);
+            if (!response.ok) {
+                alert('No se pudieron cargar las estadisticas operativas.');
+                return;
+            }
+
+            currentSummary = await response.json();
+            document.getElementById('distance-kpi').textContent = `${formatNumber(currentSummary.distanciaRecorridaKm)} km`;
+            document.getElementById('time-kpi').textContent = `${formatNumber(currentSummary.tiempoOperativoMin / 60)} h`;
+            document.getElementById('speed-kpi').textContent = currentSummary.excesosVelocidad;
+            document.getElementById('deviation-kpi').textContent = currentSummary.desviosRuta;
+            document.getElementById('claims-kpi').textContent = currentSummary.reclamosRecibidos;
+            document.getElementById('summary-text').textContent =
+                `${currentSummary.topEmpresa} lidera la distancia recorrida con el vehiculo ${currentSummary.topVehiculo} en ${currentSummary.topRuta}, acumulando ${formatNumber(currentSummary.topDistanciaKm)} km.`;
+
+            renderBars('speed-chart', completeDailyPoints(currentSummary.excesosPorDia || []), 'Sin excesos de velocidad');
+            renderBars('hour-chart', currentSummary.unidadesPorHora || [], 'Sin unidades activas');
+            await loadOperationalAlerts();
+        }
+
+        async function loadOperationalAlerts() {
+            const response = await fetch(`${opsApiBaseUrl}dashboard/operational-alerts?${queryString()}`);
+            if (!response.ok) return;
+            const alerts = await response.json();
+            renderOperationalAlerts(alerts);
+        }
+
+        function renderOperationalAlerts(alerts) {
+            const feed = document.getElementById('alerts-feed');
+            document.getElementById('alerts-count').textContent = alerts.length;
+            if (!alerts.length) {
+                feed.innerHTML = '<div class="ops-empty-alert">Sin alertas para el filtro seleccionado.</div>';
+                return;
+            }
+
+            feed.innerHTML = alerts.map(alert => alertCard(alert)).join('');
+        }
+
+        function prependRealtimeAlert(alert) {
+            const feed = document.getElementById('alerts-feed');
+            const count = document.getElementById('alerts-count');
+            if (feed.querySelector('.ops-empty-alert')) feed.innerHTML = '';
+            feed.insertAdjacentHTML('afterbegin', alertCard(alert));
+            count.textContent = Number(count.textContent || 0) + 1;
+        }
+
+        function alertCard(alert) {
+            const typeCode = String(alert.tipoCodigo || alert.tipo || '').toUpperCase();
+            const className = typeCode.includes('VELOCIDAD') ? 'speed' : typeCode.includes('DESVIO') ? 'deviation' : typeCode.includes('PANICO') ? 'panic' : '';
+            const icon = className === 'speed' ? 'fa-gauge-high' : className === 'deviation' ? 'fa-route' : className === 'panic' ? 'fa-triangle-exclamation' : 'fa-bell';
+            const speedText = alert.valorDetectado
+                ? ` a ${formatNumber(alert.valorDetectado)} km/h${alert.valorPermitido ? `, limite ${formatNumber(alert.valorPermitido)} km/h` : ''}`
+                : '';
+            const message = className === 'speed'
+                ? `La unidad ${alert.placa || 'sin placa'} de la ruta ${alert.ruta || 'sin ruta'} esta elevando la velocidad${speedText}.`
+                : `${alert.tipo || 'Alerta'}: ${alert.descripcion || 'Evento operativo registrado.'}`;
+
+            return `<article class="ops-alert-note ${className}">
+                <div class="ops-alert-title">
+                    <span><i class="fa-solid ${icon}"></i> ${escapeHtml(alert.tipo || 'Alerta')}</span>
+                    <small>${escapeHtml(alert.estado || 'PENDIENTE')}</small>
+                </div>
+                <div class="ops-alert-message">${escapeHtml(message)}</div>
+                <div class="ops-alert-meta">
+                    <span><strong>Vehiculo:</strong> ${escapeHtml(alert.placa || '')} ${alert.codigoVehiculo ? `(${escapeHtml(alert.codigoVehiculo)})` : ''}</span>
+                    <span><strong>Ruta:</strong> ${escapeHtml(alert.ruta || 'Sin ruta')}</span>
+                    <span><strong>Conductor:</strong> ${escapeHtml(alert.conductor || 'Sin conductor')}</span>
+                    <span>${formatDateTime(alert.fechaAlerta || alert.fecha)}</span>
+                </div>
+            </article>`;
+        }
+
+        function startOperationalAlertsRealtime() {
+            if (!window.signalR || !opsSignalrUrl) return;
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl(opsSignalrUrl)
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("SendAlertNotification", alert => {
+                prependRealtimeAlert({
+                    tipoCodigo: alert.tipo,
+                    tipo: alert.tipo,
+                    severidad: alert.severidad,
+                    placa: alert.placa,
+                    ruta: alert.ruta || 'Ruta monitoreada',
+                    conductor: alert.conductor,
+                    fechaAlerta: alert.fecha,
+                    descripcion: alert.descripcion,
+                    estado: 'PENDIENTE'
+                });
+                loadOperationalDashboard();
+            });
+
+            connection.start().catch(error => console.error('SignalR alertas:', error));
+        }
+
+        async function openOperationalDetail(type) {
+            if (type === 'reclamos') {
+                showLocalMessage('Reclamos recibidos', 'Este cuadro queda listo para conectarse al modulo de reclamos cuando se registre esa tabla en la base de datos.');
+                return;
+            }
+
+            const response = await fetch(`${opsApiBaseUrl}dashboard/operational-detail/${type}?${queryString()}`);
+            if (!response.ok) {
+                alert('No se pudo cargar la bitacora.');
+                return;
+            }
+
+            const rows = await response.json();
+            document.getElementById('detail-title').textContent = metricTitles[type];
+            document.getElementById('detail-kicker').textContent = type === 'desvio' ? 'Bitacora de desvios por fecha' : 'Detalle por fecha';
+            document.getElementById('detail-highlight').textContent = buildHighlight(type, rows);
+            const body = document.getElementById('detail-body');
+            body.innerHTML = rows.length === 0
+                ? '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary)">Sin registros para el filtro seleccionado.</td></tr>'
+                : rows.map(row => detailRow(type, row)).join('');
+
+            document.getElementById('ops-detail-modal').classList.add('active');
+        }
+
+        function closeOperationalDetail() {
+            document.getElementById('ops-detail-modal').classList.remove('active');
+        }
+
+        function showLocalMessage(title, message) {
+            document.getElementById('detail-title').textContent = title;
+            document.getElementById('detail-kicker').textContent = 'Pendiente de fuente';
+            document.getElementById('detail-highlight').textContent = message;
+            document.getElementById('detail-body').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary)">Sin registros.</td></tr>';
+            document.getElementById('ops-detail-modal').classList.add('active');
+        }
+
+        function buildHighlight(type, rows) {
+            if (!rows.length) return 'No hay registros para el rango consultado.';
+            if (type === 'distancia') {
+                const top = [...rows].sort((a, b) => b.distanciaKm - a.distanciaKm)[0];
+                return `${top.empresa} / ${top.placa} hizo la mayor distancia del filtro: ${formatNumber(top.distanciaKm)} km en ${top.ruta}.`;
+            }
+            if (type === 'tiempo') {
+                const totalMinutes = rows.reduce((sum, row) => sum + row.tiempoOperativoMin, 0);
+                return `Bitacora operativa: ${rows.length} recorridos acumulan ${formatNumber(totalMinutes / 60)} horas de circulacion.`;
+            }
+            if (type === 'velocidad') {
+                return `Se registraron ${rows.length} excesos de velocidad. Cada fila conserva vehiculo, ruta, fecha y valor detectado.`;
+            }
+            return `Se registraron ${rows.length} desvios de ruta. Cada evento identifica bus, ruta y fecha para la bitacora.`;
+        }
+
+        function detailRow(type, row) {
+            let value = `${row.eventos} evento(s)`;
+            if (type === 'distancia') value = `${formatNumber(row.distanciaKm)} km`;
+            if (type === 'tiempo') value = `${formatNumber(row.tiempoOperativoMin / 60)} h`;
+            if (type === 'velocidad') value = `${formatNumber(row.valorMaximo || 0)} km/h`;
+
+            return `<tr>
+                <td>${new Date(row.fecha).toLocaleDateString('es-PE')}</td>
+                <td>${escapeHtml(row.empresa)}</td>
+                <td><strong>${escapeHtml(row.placa)}</strong><br><span style="color:var(--text-secondary)">${escapeHtml(row.codigoVehiculo)}</span></td>
+                <td>${escapeHtml(row.ruta)}</td>
+                <td><strong>${value}</strong><br><span style="color:var(--text-secondary)">${escapeHtml(row.descripcion || '')}</span></td>
+                <td>${escapeHtml(row.estado || '')}</td>
+            </tr>`;
+        }
+
+        function renderBars(containerId, points, emptyText) {
+            const container = document.getElementById(containerId);
+            if (!points.length) {
+                container.innerHTML = `<div class="ops-bar-empty-note">${emptyText}</div>`;
+                return;
+            }
+
+            const max = Math.max(...points.map(p => p.value), 1);
+            const hasValues = points.some(point => Number(point.value) > 0);
+            container.innerHTML = points.map(point => {
+                const value = Number(point.value || 0);
+                const height = value === 0 ? 6 : Math.max(18, (value / max) * 150);
+                const zeroClass = value === 0 ? ' ops-bar-zero' : '';
+                return `<div class="ops-bar${zeroClass}" style="height:${height}px" title="${point.label}: ${value}">
+                    <strong>${formatNumber(value)}</strong>
+                    <span>${escapeHtml(point.label)}</span>
+                </div>`;
+            }).join('') + (hasValues ? '' : `<div class="ops-bar-empty-note">${emptyText}</div>`);
+        }
+
+        function completeDailyPoints(points) {
+            const fromInput = document.getElementById('date-from').value;
+            const toInput = document.getElementById('date-to').value;
+            if (!fromInput || !toInput) return points;
+
+            const valuesByLabel = new Map(points.map(point => [point.label, Number(point.value || 0)]));
+            const from = new Date(`${fromInput}T00:00:00`);
+            const to = new Date(`${toInput}T00:00:00`);
+            const days = [];
+
+            for (let current = new Date(from); current <= to && days.length < 14; current.setDate(current.getDate() + 1)) {
+                const label = current.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' });
+                days.push({ label, value: valuesByLabel.get(label) || 0 });
+            }
+
+            return days.length > 0 ? days : points;
+        }
+
+        function formatNumber(value) {
+            return Number(value || 0).toLocaleString('es-PE', { maximumFractionDigits: 1 });
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return String(value);
+            return date.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+    </script>
+}

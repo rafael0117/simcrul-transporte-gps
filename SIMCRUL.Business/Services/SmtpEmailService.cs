@@ -32,7 +32,36 @@ public class SmtpEmailService : IEmailService
             .AppendLine("</div>")
             .ToString();
 
-        await SendEmailAsync(message.RecipientEmail, "SIMCRUL - Recuperacion de contrasena", body, cancellationToken);
+        await SendEmailAsync(message.RecipientEmail, _options.RecoverySubject, body, cancellationToken);
+    }
+
+    public async Task SendWelcomeEmailAsync(WelcomeEmailMessage message, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var displayName = string.IsNullOrWhiteSpace(message.RecipientName)
+            ? message.Username
+            : message.RecipientName;
+
+        var body = new StringBuilder()
+            .AppendLine("<div style=\"font-family:Segoe UI,Arial,sans-serif;color:#0f172a;max-width:680px\">")
+            .AppendLine("<div style=\"background:#0f172a;color:#ffffff;padding:22px;border-radius:14px 14px 0 0\">")
+            .AppendLine("<h2 style=\"margin:0;color:#ffffff\">Bienvenido a SIMCRUL</h2>")
+            .AppendLine("<p style=\"margin:8px 0 0;color:#cbd5e1\">Tu cuenta de pasajero fue creada correctamente.</p>")
+            .AppendLine("</div>")
+            .AppendLine("<div style=\"border:1px solid #cbd5e1;border-top:0;padding:22px;border-radius:0 0 14px 14px\">")
+            .AppendLine($"<p>Hola {WebUtility.HtmlEncode(displayName)},</p>")
+            .AppendLine("<p>Gracias por registrarte en SIMCRUL. Desde ahora puedes acceder al sistema para consultar rutas, revisar informacion del servicio y registrar tus solicitudes como pasajero.</p>")
+            .AppendLine("<table style=\"border-collapse:collapse;width:100%;margin:18px 0\">")
+            .AppendLine(Row("Usuario", message.Username))
+            .AppendLine("</table>")
+            .AppendLine("<p>Conserva tu usuario para futuros ingresos. Por seguridad, no incluimos tu contrasena en este correo.</p>")
+            .AppendLine("<p style=\"color:#475569\">Equipo SIMCRUL</p>")
+            .AppendLine("</div>")
+            .AppendLine("</div>")
+            .ToString();
+
+        await SendEmailAsync(message.RecipientEmail, _options.WelcomeSubject, body, cancellationToken);
     }
 
     public async Task SendAlertEmailAsync(AlertEmailMessage message, CancellationToken cancellationToken = default)

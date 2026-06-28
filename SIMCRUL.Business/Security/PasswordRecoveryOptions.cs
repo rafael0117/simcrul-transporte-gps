@@ -8,6 +8,8 @@ public class PasswordRecoveryOptions
     public string SmtpPassword { get; set; } = string.Empty;
     public string FromEmail { get; set; } = string.Empty;
     public string FromName { get; set; } = "SIMCRUL";
+    public string RecoverySubject { get; set; } = "SIMCRUL - RECUPERAR CONTRASEÑA";
+    public string WelcomeSubject { get; set; } = "Bienvenido a SIMCRUL - Tu cuenta fue creada";
     public string FrontendResetUrl { get; set; } = "http://localhost:5171/Cuenta/RestablecerContrasena";
     public bool UseSsl { get; set; } = true;
     public int TokenExpiryMinutes { get; set; } = 30;

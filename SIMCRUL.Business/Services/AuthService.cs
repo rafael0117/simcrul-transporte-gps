@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using SIMCRUL.Business.Interfaces;
@@ -21,17 +22,20 @@ public class AuthService : IAuthService
     private readonly JwtOptions _jwtOptions;
     private readonly PasswordRecoveryOptions _passwordRecoveryOptions;
     private readonly IEmailService _emailService;
+    private readonly ILogger<AuthService> _logger;
 
     public AuthService(
         ApplicationDbContext context,
         IOptions<JwtOptions> jwtOptions,
         IOptions<PasswordRecoveryOptions> passwordRecoveryOptions,
-        IEmailService emailService)
+        IEmailService emailService,
+        ILogger<AuthService> logger)
     {
         _context = context;
         _jwtOptions = jwtOptions.Value;
         _passwordRecoveryOptions = passwordRecoveryOptions.Value;
         _emailService = emailService;
+        _logger = logger;
     }
 
     public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
@@ -87,7 +91,31 @@ public class AuthService : IAuthService
         _context.Usuarios.Add(usuario);
         await _context.SaveChangesAsync(cancellationToken);
 
+        if (string.Equals(rol.Nombre, "Pasajero", StringComparison.OrdinalIgnoreCase))
+        {
+            await TrySendWelcomeEmailAsync(usuario, cancellationToken);
+        }
+
         return GenerateAuthResponse(usuario);
+    }
+
+    private async Task TrySendWelcomeEmailAsync(Usuario usuario, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _emailService.SendWelcomeEmailAsync(
+                new WelcomeEmailMessage
+                {
+                    RecipientEmail = usuario.Email,
+                    RecipientName = $"{usuario.Nombres} {usuario.Apellidos}".Trim(),
+                    Username = usuario.Username
+                },
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "No se pudo enviar el correo de bienvenida para el usuario {Username}.", usuario.Username);
+        }
     }
 
     public async Task RequestPasswordResetAsync(ForgotPasswordRequestDto request, string? requesterIp, CancellationToken cancellationToken = default)
@@ -100,6 +128,8 @@ public class AuthService : IAuthService
             return;
         }
 
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
         var activeTokens = await _context.PasswordResetTokens
             .Where(t => t.IdUsuario == usuario.IdUsuario && t.UsedAtUtc == null)
             .ToListAsync(cancellationToken);
@@ -111,6 +141,7 @@ public class AuthService : IAuthService
 
         var rawToken = GenerateResetToken();
         var expirationUtc = DateTime.UtcNow.AddMinutes(_passwordRecoveryOptions.TokenExpiryMinutes);
+        usuario.PasswordHash = ComputeHash(GenerateTemporaryPassword());
 
         _context.PasswordResetTokens.Add(new PasswordResetToken
         {
@@ -132,6 +163,8 @@ public class AuthService : IAuthService
                 ExpirationUtc = expirationUtc
             },
             cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequestDto request, CancellationToken cancellationToken = default)
@@ -218,6 +251,11 @@ public class AuthService : IAuthService
     private static string GenerateResetToken()
     {
         return WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(48));
+    }
+
+    private static string GenerateTemporaryPassword()
+    {
+        return $"SIMCRUL-{WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(18))}";
     }
 
     private string BuildResetUrl(string rawToken)

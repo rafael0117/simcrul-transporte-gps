@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SIMCRUL.Common.DTOs.Dashboard;
 using SIMCRUL.Data.Context;
 using SIMCRUL.Entity;
+using System.Data;
 using System.Security.Claims;
 
 namespace SIMCRUL.API.Controllers;
@@ -66,6 +68,199 @@ public class DashboardController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "Error al obtener KPIs.", details = ex.Message });
+        }
+    }
+
+    [HttpGet("operational-summary")]
+    public async Task<IActionResult> GetOperationalSummary(DateTime? dateFrom, DateTime? dateTo, int? routeId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var from = (dateFrom ?? DateTime.Today.AddDays(-7)).Date;
+            var to = (dateTo ?? DateTime.Today).Date;
+            if (from > to)
+            {
+                return BadRequest(new { message = "La fecha desde no puede ser mayor a la fecha hasta." });
+            }
+
+            await using var connection = _context.Database.GetDbConnection();
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync(cancellationToken);
+            }
+
+            await using var command = connection.CreateCommand();
+            command.CommandText = "dbo.SP_DASHBOARD_OPERATIVO_RESUMEN";
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.Add(new SqlParameter("@FechaDesde", SqlDbType.Date) { Value = from });
+            command.Parameters.Add(new SqlParameter("@FechaHasta", SqlDbType.Date) { Value = to });
+            command.Parameters.Add(new SqlParameter("@IdRuta", SqlDbType.Int) { Value = routeId.HasValue ? routeId.Value : DBNull.Value });
+
+            var summary = new OperationalDashboardSummaryDto();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                summary.DistanciaRecorridaKm = reader.GetDecimal(reader.GetOrdinal("DistanciaRecorridaKm"));
+                summary.TiempoOperativoMin = reader.GetInt32(reader.GetOrdinal("TiempoOperativoMin"));
+                summary.ExcesosVelocidad = reader.GetInt32(reader.GetOrdinal("ExcesosVelocidad"));
+                summary.DesviosRuta = reader.GetInt32(reader.GetOrdinal("DesviosRuta"));
+                summary.ReclamosRecibidos = reader.GetInt32(reader.GetOrdinal("ReclamosRecibidos"));
+                summary.TopEmpresa = reader.GetString(reader.GetOrdinal("TopEmpresa"));
+                summary.TopVehiculo = reader.GetString(reader.GetOrdinal("TopVehiculo"));
+                summary.TopRuta = reader.GetString(reader.GetOrdinal("TopRuta"));
+                summary.TopDistanciaKm = reader.GetDecimal(reader.GetOrdinal("TopDistanciaKm"));
+            }
+
+            if (await reader.NextResultAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    summary.ExcesosPorDia.Add(new OperationalChartPointDto
+                    {
+                        Label = reader.GetString(reader.GetOrdinal("Label")),
+                        Value = reader.GetDecimal(reader.GetOrdinal("Value"))
+                    });
+                }
+            }
+
+            if (await reader.NextResultAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    summary.UnidadesPorHora.Add(new OperationalChartPointDto
+                    {
+                        Label = reader.GetString(reader.GetOrdinal("Label")),
+                        Value = reader.GetDecimal(reader.GetOrdinal("Value"))
+                    });
+                }
+            }
+
+            return Ok(summary);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error al obtener estadisticas operativas.", details = ex.Message });
+        }
+    }
+
+    [HttpGet("operational-detail/{type}")]
+    public async Task<IActionResult> GetOperationalDetail(string type, DateTime? dateFrom, DateTime? dateTo, int? routeId, CancellationToken cancellationToken)
+    {
+        var allowedTypes = new[] { "distancia", "tiempo", "velocidad", "desvio" };
+        if (!allowedTypes.Contains(type, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { message = "Tipo de detalle no soportado." });
+        }
+
+        try
+        {
+            var from = (dateFrom ?? DateTime.Today.AddDays(-7)).Date;
+            var to = (dateTo ?? DateTime.Today).Date;
+
+            await using var connection = _context.Database.GetDbConnection();
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync(cancellationToken);
+            }
+
+            await using var command = connection.CreateCommand();
+            command.CommandText = "dbo.SP_DASHBOARD_OPERATIVO_DETALLE";
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.Add(new SqlParameter("@Tipo", SqlDbType.NVarChar, 30) { Value = type.ToLowerInvariant() });
+            command.Parameters.Add(new SqlParameter("@FechaDesde", SqlDbType.Date) { Value = from });
+            command.Parameters.Add(new SqlParameter("@FechaHasta", SqlDbType.Date) { Value = to });
+            command.Parameters.Add(new SqlParameter("@IdRuta", SqlDbType.Int) { Value = routeId.HasValue ? routeId.Value : DBNull.Value });
+
+            var rows = new List<OperationalDetailDto>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                rows.Add(new OperationalDetailDto
+                {
+                    Fecha = reader.GetDateTime(reader.GetOrdinal("Fecha")),
+                    Empresa = reader.GetString(reader.GetOrdinal("Empresa")),
+                    Placa = reader.GetString(reader.GetOrdinal("Placa")),
+                    CodigoVehiculo = reader.GetString(reader.GetOrdinal("CodigoVehiculo")),
+                    Ruta = reader.GetString(reader.GetOrdinal("Ruta")),
+                    DistanciaKm = reader.GetDecimal(reader.GetOrdinal("DistanciaKm")),
+                    TiempoOperativoMin = reader.GetInt32(reader.GetOrdinal("TiempoOperativoMin")),
+                    Eventos = reader.GetInt32(reader.GetOrdinal("Eventos")),
+                    ValorMaximo = reader.IsDBNull(reader.GetOrdinal("ValorMaximo")) ? null : reader.GetDecimal(reader.GetOrdinal("ValorMaximo")),
+                    Descripcion = reader.GetString(reader.GetOrdinal("Descripcion")),
+                    Estado = reader.GetString(reader.GetOrdinal("Estado"))
+                });
+            }
+
+            return Ok(rows);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error al obtener detalle operativo.", details = ex.Message });
+        }
+    }
+
+    [HttpGet("route-options")]
+    public async Task<IActionResult> GetRouteOptions(CancellationToken cancellationToken)
+    {
+        var routes = await _context.Rutas
+            .Where(r => r.Activa)
+            .OrderBy(r => r.CodigoRuta)
+            .Select(r => new RouteOptionDto
+            {
+                IdRuta = r.IdRuta,
+                CodigoRuta = r.CodigoRuta,
+                NombreRuta = r.NombreRuta
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(routes);
+    }
+
+    [HttpGet("operational-alerts")]
+    public async Task<IActionResult> GetOperationalAlerts(DateTime? dateFrom, DateTime? dateTo, int? routeId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var from = (dateFrom ?? DateTime.Today.AddDays(-7)).Date;
+            var toExclusive = (dateTo ?? DateTime.Today).Date.AddDays(1);
+
+            var alerts = await _context.Alertas
+                .Include(a => a.TipoAlerta)
+                .Include(a => a.Vehiculo)
+                .Include(a => a.Conductor)
+                .Include(a => a.Viaje)
+                    .ThenInclude(v => v!.AsignacionOperacion)
+                        .ThenInclude(ao => ao.Ruta)
+                .Where(a => a.FechaAlerta >= from && a.FechaAlerta < toExclusive)
+                .Where(a => routeId == null || (a.Viaje != null && a.Viaje.AsignacionOperacion.IdRuta == routeId.Value))
+                .OrderByDescending(a => a.FechaAlerta)
+                .Take(30)
+                .Select(a => new OperationalAlertNotificationDto
+                {
+                    IdAlerta = a.IdAlerta,
+                    TipoCodigo = a.TipoAlerta.Codigo,
+                    Tipo = a.TipoAlerta.Nombre,
+                    Severidad = a.TipoAlerta.NivelSeveridad,
+                    Placa = a.Vehiculo.Placa,
+                    CodigoVehiculo = a.Vehiculo.CodigoInterno,
+                    Ruta = a.Viaje == null
+                        ? "Sin ruta"
+                        : a.Viaje.AsignacionOperacion.Ruta.CodigoRuta + " - " + a.Viaje.AsignacionOperacion.Ruta.NombreRuta,
+                    Conductor = a.Conductor == null ? "Sin conductor" : a.Conductor.Nombres + " " + a.Conductor.Apellidos,
+                    FechaAlerta = a.FechaAlerta,
+                    Descripcion = a.Descripcion,
+                    ValorDetectado = a.ValorDetectado,
+                    ValorPermitido = a.ValorPermitido,
+                    Estado = a.Estado
+                })
+                .ToListAsync(cancellationToken);
+
+            return Ok(alerts);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error al obtener alertas operativas.", details = ex.Message });
         }
     }
 

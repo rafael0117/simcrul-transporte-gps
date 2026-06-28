@@ -40,6 +40,12 @@ public class DashboardController : Controller
         return View();
     }
 
+    public IActionResult Estadisticas()
+    {
+        if (!IsAuthorized()) return RedirectUnauthorized();
+        return View();
+    }
+
     [HttpGet]
     public async Task<IActionResult> DownloadPdf(DateTime? dateFrom, DateTime? dateTo)
     {

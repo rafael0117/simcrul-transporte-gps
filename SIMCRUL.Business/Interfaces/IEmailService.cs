@@ -5,5 +5,6 @@ namespace SIMCRUL.Business.Interfaces;
 public interface IEmailService
 {
     Task SendPasswordRecoveryEmailAsync(PasswordRecoveryEmailMessage message, CancellationToken cancellationToken = default);
+    Task SendWelcomeEmailAsync(WelcomeEmailMessage message, CancellationToken cancellationToken = default);
     Task SendAlertEmailAsync(AlertEmailMessage message, CancellationToken cancellationToken = default);
 }

@@ -13,6 +13,7 @@ public static class DatabaseInitializer
         // Ensure the database and schema are created
         await context.Database.EnsureCreatedAsync();
         await EnsureCompatibilitySchemaAsync(context);
+        await EnsureOperationalDashboardProceduresAsync(context);
 
         // 1. Seed Roles
         var requiredRoles = new[] { "Administrador", "Supervisor", "Operador", "Pasajero" };
@@ -240,5 +241,247 @@ public static class DatabaseInitializer
             """;
 
         await context.Database.ExecuteSqlRawAsync(sql);
+    }
+
+    private static async Task EnsureOperationalDashboardProceduresAsync(ApplicationDbContext context)
+    {
+        const string summaryProcedure = """
+            CREATE OR ALTER PROCEDURE dbo.SP_DASHBOARD_OPERATIVO_RESUMEN
+                @FechaDesde DATE,
+                @FechaHasta DATE,
+                @IdRuta INT = NULL
+            AS
+            BEGIN
+                SET NOCOUNT ON;
+
+                DECLARE @Inicio DATETIME2 = CAST(@FechaDesde AS DATETIME2);
+                DECLARE @Fin DATETIME2 = DATEADD(DAY, 1, CAST(@FechaHasta AS DATETIME2));
+
+                CREATE TABLE #AlertasFiltradas
+                (
+                    codigo NVARCHAR(50) NOT NULL,
+                    fecha_alerta DATETIME2 NOT NULL
+                );
+
+                INSERT INTO #AlertasFiltradas (codigo, fecha_alerta)
+                SELECT ta.codigo, a.fecha_alerta
+                FROM ALERTAS a
+                INNER JOIN TIPOS_ALERTA ta ON ta.id_tipo_alerta = a.id_tipo_alerta
+                LEFT JOIN VIAJES vi ON vi.id_viaje = a.id_viaje
+                LEFT JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
+                WHERE a.fecha_alerta >= @Inicio
+                  AND a.fecha_alerta < @Fin
+                  AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta);
+
+                ;WITH Lecturas AS
+                (
+                    SELECT
+                        gl.id_lectura,
+                        CAST(gl.fecha_gps AS DATE) AS fecha,
+                        gl.fecha_gps,
+                        gl.id_vehiculo,
+                        v.placa,
+                        v.codigo_interno,
+                        et.razon_social AS empresa,
+                        r.codigo_ruta,
+                        r.nombre_ruta,
+                        ao.id_ruta,
+                        CAST(gl.latitud AS FLOAT) AS latitud,
+                        CAST(gl.longitud AS FLOAT) AS longitud,
+                        LAG(CAST(gl.latitud AS FLOAT)) OVER (PARTITION BY gl.id_vehiculo, CAST(gl.fecha_gps AS DATE) ORDER BY gl.fecha_gps, gl.id_lectura) AS prev_latitud,
+                        LAG(CAST(gl.longitud AS FLOAT)) OVER (PARTITION BY gl.id_vehiculo, CAST(gl.fecha_gps AS DATE) ORDER BY gl.fecha_gps, gl.id_lectura) AS prev_longitud
+                    FROM GPS_LECTURAS gl
+                    INNER JOIN VEHICULOS v ON v.id_vehiculo = gl.id_vehiculo
+                    INNER JOIN EMPRESAS_TRANSPORTE et ON et.id_empresa = v.id_empresa
+                    LEFT JOIN VIAJES vi ON vi.id_viaje = gl.id_viaje
+                    LEFT JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
+                    LEFT JOIN RUTAS r ON r.id_ruta = ao.id_ruta
+                    WHERE gl.fecha_gps >= @Inicio
+                      AND gl.fecha_gps < @Fin
+                      AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta)
+                ),
+                Distancias AS
+                (
+                    SELECT
+                        fecha,
+                        id_vehiculo,
+                        placa,
+                        codigo_interno,
+                        empresa,
+                        codigo_ruta,
+                        nombre_ruta,
+                        CASE
+                            WHEN prev_latitud IS NULL OR prev_longitud IS NULL THEN 0
+                            ELSE geography::Point(latitud, longitud, 4326).STDistance(geography::Point(prev_latitud, prev_longitud, 4326)) / 1000.0
+                        END AS distancia_km
+                    FROM Lecturas
+                ),
+                DistanciaAgrupada AS
+                (
+                    SELECT
+                        empresa,
+                        placa,
+                        codigo_interno,
+                        CONCAT(ISNULL(codigo_ruta, 'S/R'), ' - ', ISNULL(nombre_ruta, 'Sin ruta')) AS ruta,
+                        SUM(distancia_km) AS distancia_km
+                    FROM Distancias
+                    GROUP BY empresa, placa, codigo_interno, codigo_ruta, nombre_ruta
+                ),
+                Tiempo AS
+                (
+                    SELECT
+                        SUM(DATEDIFF(MINUTE, vi.fecha_inicio_real, ISNULL(vi.fecha_fin_real, SYSUTCDATETIME()))) AS tiempo_min
+                    FROM VIAJES vi
+                    INNER JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
+                    WHERE vi.fecha_inicio_real >= @Inicio
+                      AND vi.fecha_inicio_real < @Fin
+                      AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta)
+                )
+                SELECT
+                    CAST(ISNULL((SELECT SUM(distancia_km) FROM Distancias), 0) AS DECIMAL(18,2)) AS DistanciaRecorridaKm,
+                    CAST(ISNULL((SELECT tiempo_min FROM Tiempo), 0) AS INT) AS TiempoOperativoMin,
+                    CAST((SELECT COUNT(1) FROM #AlertasFiltradas WHERE codigo = 'VELOCIDAD') AS INT) AS ExcesosVelocidad,
+                    CAST((SELECT COUNT(1) FROM #AlertasFiltradas WHERE codigo = 'DESVIO_RUTA') AS INT) AS DesviosRuta,
+                    CAST(0 AS INT) AS ReclamosRecibidos,
+                    ISNULL((SELECT TOP 1 empresa FROM DistanciaAgrupada ORDER BY distancia_km DESC), 'Sin datos') AS TopEmpresa,
+                    ISNULL((SELECT TOP 1 placa FROM DistanciaAgrupada ORDER BY distancia_km DESC), 'Sin datos') AS TopVehiculo,
+                    ISNULL((SELECT TOP 1 ruta FROM DistanciaAgrupada ORDER BY distancia_km DESC), 'Sin datos') AS TopRuta,
+                    CAST(ISNULL((SELECT TOP 1 distancia_km FROM DistanciaAgrupada ORDER BY distancia_km DESC), 0) AS DECIMAL(18,2)) AS TopDistanciaKm;
+
+                SELECT
+                    FORMAT(CAST(fecha_alerta AS DATE), 'dd/MM') AS Label,
+                    CAST(COUNT(1) AS DECIMAL(18,2)) AS Value
+                FROM #AlertasFiltradas
+                WHERE codigo = 'VELOCIDAD'
+                GROUP BY CAST(fecha_alerta AS DATE)
+                ORDER BY CAST(fecha_alerta AS DATE);
+
+                SELECT
+                    FORMAT(DATEPART(HOUR, gl.fecha_gps), '00') AS Label,
+                    CAST(COUNT(DISTINCT gl.id_vehiculo) AS DECIMAL(18,2)) AS Value
+                FROM GPS_LECTURAS gl
+                LEFT JOIN VIAJES vi ON vi.id_viaje = gl.id_viaje
+                LEFT JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
+                WHERE gl.fecha_gps >= @Inicio
+                  AND gl.fecha_gps < @Fin
+                  AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta)
+                GROUP BY DATEPART(HOUR, gl.fecha_gps)
+                ORDER BY DATEPART(HOUR, gl.fecha_gps);
+            END
+            """;
+
+        const string detailProcedure = """
+            CREATE OR ALTER PROCEDURE dbo.SP_DASHBOARD_OPERATIVO_DETALLE
+                @Tipo NVARCHAR(30),
+                @FechaDesde DATE,
+                @FechaHasta DATE,
+                @IdRuta INT = NULL
+            AS
+            BEGIN
+                SET NOCOUNT ON;
+
+                DECLARE @Inicio DATETIME2 = CAST(@FechaDesde AS DATETIME2);
+                DECLARE @Fin DATETIME2 = DATEADD(DAY, 1, CAST(@FechaHasta AS DATETIME2));
+
+                IF @Tipo = 'distancia'
+                BEGIN
+                    ;WITH Lecturas AS
+                    (
+                        SELECT
+                            CAST(gl.fecha_gps AS DATE) AS fecha,
+                            gl.fecha_gps,
+                            gl.id_lectura,
+                            gl.id_vehiculo,
+                            et.razon_social AS empresa,
+                            v.placa,
+                            v.codigo_interno,
+                            CONCAT(ISNULL(r.codigo_ruta, 'S/R'), ' - ', ISNULL(r.nombre_ruta, 'Sin ruta')) AS ruta,
+                            CAST(gl.latitud AS FLOAT) AS latitud,
+                            CAST(gl.longitud AS FLOAT) AS longitud,
+                            LAG(CAST(gl.latitud AS FLOAT)) OVER (PARTITION BY gl.id_vehiculo, CAST(gl.fecha_gps AS DATE) ORDER BY gl.fecha_gps, gl.id_lectura) AS prev_latitud,
+                            LAG(CAST(gl.longitud AS FLOAT)) OVER (PARTITION BY gl.id_vehiculo, CAST(gl.fecha_gps AS DATE) ORDER BY gl.fecha_gps, gl.id_lectura) AS prev_longitud
+                        FROM GPS_LECTURAS gl
+                        INNER JOIN VEHICULOS v ON v.id_vehiculo = gl.id_vehiculo
+                        INNER JOIN EMPRESAS_TRANSPORTE et ON et.id_empresa = v.id_empresa
+                        LEFT JOIN VIAJES vi ON vi.id_viaje = gl.id_viaje
+                        LEFT JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
+                        LEFT JOIN RUTAS r ON r.id_ruta = ao.id_ruta
+                        WHERE gl.fecha_gps >= @Inicio
+                          AND gl.fecha_gps < @Fin
+                          AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta)
+                    )
+                    SELECT
+                        fecha AS Fecha,
+                        empresa AS Empresa,
+                        placa AS Placa,
+                        codigo_interno AS CodigoVehiculo,
+                        ruta AS Ruta,
+                        CAST(SUM(CASE WHEN prev_latitud IS NULL OR prev_longitud IS NULL THEN 0 ELSE geography::Point(latitud, longitud, 4326).STDistance(geography::Point(prev_latitud, prev_longitud, 4326)) / 1000.0 END) AS DECIMAL(18,2)) AS DistanciaKm,
+                        CAST(0 AS INT) AS TiempoOperativoMin,
+                        CAST(COUNT(1) AS INT) AS Eventos,
+                        CAST(NULL AS DECIMAL(18,2)) AS ValorMaximo,
+                        CAST('Recorrido GPS registrado' AS NVARCHAR(400)) AS Descripcion,
+                        CAST('REGISTRADO' AS NVARCHAR(30)) AS Estado
+                    FROM Lecturas
+                    GROUP BY fecha, empresa, placa, codigo_interno, ruta
+                    ORDER BY Fecha DESC, DistanciaKm DESC;
+                    RETURN;
+                END
+
+                IF @Tipo = 'tiempo'
+                BEGIN
+                    SELECT
+                        CAST(vi.fecha_inicio_real AS DATE) AS Fecha,
+                        et.razon_social AS Empresa,
+                        v.placa AS Placa,
+                        v.codigo_interno AS CodigoVehiculo,
+                        CONCAT(r.codigo_ruta, ' - ', r.nombre_ruta) AS Ruta,
+                        CAST(0 AS DECIMAL(18,2)) AS DistanciaKm,
+                        CAST(DATEDIFF(MINUTE, vi.fecha_inicio_real, ISNULL(vi.fecha_fin_real, SYSUTCDATETIME())) AS INT) AS TiempoOperativoMin,
+                        CAST(1 AS INT) AS Eventos,
+                        CAST(NULL AS DECIMAL(18,2)) AS ValorMaximo,
+                        CAST(CONCAT('Inicio: ', CONVERT(VARCHAR(16), vi.fecha_inicio_real, 120), ' / Fin: ', ISNULL(CONVERT(VARCHAR(16), vi.fecha_fin_real, 120), 'En progreso')) AS NVARCHAR(400)) AS Descripcion,
+                        vi.estado AS Estado
+                    FROM VIAJES vi
+                    INNER JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
+                    INNER JOIN VEHICULOS v ON v.id_vehiculo = ao.id_vehiculo
+                    INNER JOIN EMPRESAS_TRANSPORTE et ON et.id_empresa = v.id_empresa
+                    INNER JOIN RUTAS r ON r.id_ruta = ao.id_ruta
+                    WHERE vi.fecha_inicio_real >= @Inicio
+                      AND vi.fecha_inicio_real < @Fin
+                      AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta)
+                    ORDER BY vi.fecha_inicio_real DESC;
+                    RETURN;
+                END
+
+                SELECT
+                    CAST(a.fecha_alerta AS DATE) AS Fecha,
+                    et.razon_social AS Empresa,
+                    v.placa AS Placa,
+                    v.codigo_interno AS CodigoVehiculo,
+                    CONCAT(ISNULL(r.codigo_ruta, 'S/R'), ' - ', ISNULL(r.nombre_ruta, 'Sin ruta')) AS Ruta,
+                    CAST(0 AS DECIMAL(18,2)) AS DistanciaKm,
+                    CAST(0 AS INT) AS TiempoOperativoMin,
+                    CAST(1 AS INT) AS Eventos,
+                    CAST(a.valor_detectado AS DECIMAL(18,2)) AS ValorMaximo,
+                    a.descripcion AS Descripcion,
+                    a.estado AS Estado
+                FROM ALERTAS a
+                INNER JOIN TIPOS_ALERTA ta ON ta.id_tipo_alerta = a.id_tipo_alerta
+                INNER JOIN VEHICULOS v ON v.id_vehiculo = a.id_vehiculo
+                INNER JOIN EMPRESAS_TRANSPORTE et ON et.id_empresa = v.id_empresa
+                LEFT JOIN VIAJES vi ON vi.id_viaje = a.id_viaje
+                LEFT JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
+                LEFT JOIN RUTAS r ON r.id_ruta = ao.id_ruta
+                WHERE a.fecha_alerta >= @Inicio
+                  AND a.fecha_alerta < @Fin
+                  AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta)
+                  AND ((@Tipo = 'velocidad' AND ta.codigo = 'VELOCIDAD') OR (@Tipo = 'desvio' AND ta.codigo = 'DESVIO_RUTA'))
+                ORDER BY a.fecha_alerta DESC;
+            END
+            """;
+
+        await context.Database.ExecuteSqlRawAsync(summaryProcedure);
+        await context.Database.ExecuteSqlRawAsync(detailProcedure);
     }
 }

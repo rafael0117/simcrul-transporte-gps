@@ -15,16 +15,18 @@ public class CuentaController : Controller
     }
 
     [HttpGet]
-    public IActionResult OlvidoContrasena()
+    public IActionResult OlvidoContrasena(string? origen = null)
     {
+        ViewBag.Origen = origen;
         return View(new ForgotPasswordRequestDto());
     }
 
     [HttpPost]
-    public async Task<IActionResult> OlvidoContrasena(ForgotPasswordRequestDto request)
+    public async Task<IActionResult> OlvidoContrasena(ForgotPasswordRequestDto request, string? origen = null)
     {
         if (!ModelState.IsValid)
         {
+            ViewBag.Origen = origen;
             return View(request);
         }
 
@@ -32,11 +34,12 @@ public class CuentaController : Controller
         {
             var response = await _apiClient.PostAsync<ForgotPasswordRequestDto, MessageResponseDto>("Auth/forgot-password", request);
             TempData["SuccessMessage"] = response?.Message ?? "Si el correo existe, recibira instrucciones para restablecer su contrasena.";
-            return RedirectToAction(nameof(OlvidoContrasena));
+            return RedirectToAction(nameof(OlvidoContrasena), new { origen });
         }
         catch (Exception ex)
         {
             ModelState.AddModelError(string.Empty, $"No se pudo enviar el correo: {ex.Message}");
+            ViewBag.Origen = origen;
             return View(request);
         }
     }

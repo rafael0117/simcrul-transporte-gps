@@ -37,6 +37,12 @@
         </form>
 
         <div style="margin-top: 1rem; text-align: center;">
+            <a asp-controller="Cuenta" asp-action="OlvidoContrasena" asp-route-origen="passenger" style="color: var(--primary); font-weight: 600; text-decoration: none;">
+                <i class="fa-solid fa-key"></i> Recuperar contrasena
+            </a>
+        </div>
+
+        <div style="margin-top: 1rem; text-align: center;">
             <a asp-controller="Passenger" asp-action="Register" asp-route-returnUrl="@returnUrl" style="color: var(--primary); font-weight: 600; text-decoration: none;">
                 <i class="fa-solid fa-user-plus"></i> Crear cuenta de pasajero
             </a>

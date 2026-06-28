@@ -1,13 +1,15 @@
 @model SIMCRUL.Common.DTOs.Auth.ForgotPasswordRequestDto
 @{
-    ViewData["Title"] = "Recuperar Contraseña";
+    ViewData["Title"] = "Recuperar Contrasena";
+    var origen = ViewBag.Origen as string;
+    var volverController = string.Equals(origen, "passenger", StringComparison.OrdinalIgnoreCase) ? "Passenger" : "Home";
 }
 
 <div class="centered-page">
     <div class="glass-card login-card">
         <div style="text-align:center; margin-bottom:2rem;">
             <i class="fa-solid fa-envelope-circle-check" style="font-size:3rem; color:var(--primary); margin-bottom:1rem;"></i>
-            <h2>Recuperar contraseña</h2>
+            <h2>Recuperar contrasena</h2>
             <p style="color: var(--text-secondary); font-size: 0.95rem;">Te enviaremos un enlace de restablecimiento a tu correo.</p>
         </div>
 
@@ -17,10 +19,11 @@
         }
 
         <form asp-action="OlvidoContrasena" method="post" class="modal-form" style="gap:1.5rem;">
+            <input type="hidden" name="origen" value="@origen" />
             <div asp-validation-summary="ModelOnly" style="color: var(--danger); font-size: 0.9rem;"></div>
 
             <div>
-                <label asp-for="Email" class="form-label">Correo electrónico</label>
+                <label asp-for="Email" class="form-label">Correo electronico</label>
                 <input asp-for="Email" class="custom-input" autocomplete="email" placeholder="usuario@correo.com" />
                 <span asp-validation-for="Email" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem; display:block;"></span>
             </div>
@@ -31,7 +34,7 @@
         </form>
 
         <div style="margin-top:1rem; text-align:center;">
-            <a asp-controller="Home" asp-action="Login" style="color:var(--primary); font-weight:600; text-decoration:none;">
+            <a asp-controller="@volverController" asp-action="Login" style="color:var(--primary); font-weight:600; text-decoration:none;">
                 <i class="fa-solid fa-arrow-left"></i> Volver al login
             </a>
         </div>
