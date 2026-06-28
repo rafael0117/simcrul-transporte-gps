@@ -10,10 +10,12 @@ namespace SIMCRUL.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IRecaptchaService _recaptchaService;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, IRecaptchaService recaptchaService)
     {
         _authService = authService;
+        _recaptchaService = recaptchaService;
     }
 
     [HttpPost("login")]
@@ -21,6 +23,13 @@ public class AuthController : ControllerBase
     {
         try
         {
+            var requesterIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var captchaValid = await _recaptchaService.ValidateAsync(request.RecaptchaToken, requesterIp, "login", cancellationToken);
+            if (!captchaValid)
+            {
+                return BadRequest(new { message = "No se pudo validar el captcha. Intente nuevamente." });
+            }
+
             var response = await _authService.LoginAsync(request, cancellationToken);
             return Ok(response);
         }

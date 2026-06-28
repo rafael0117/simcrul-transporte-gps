@@ -9,4 +9,6 @@ public class LoginRequestDto
 
     [Required(ErrorMessage = "La contraseña es obligatoria.")]
     public string Password { get; set; } = string.Empty;
+
+    public string? RecaptchaToken { get; set; }
 }

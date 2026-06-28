@@ -1,6 +1,10 @@
 @model SIMCRUL.Common.DTOs.Auth.LoginRequestDto
 @{
     ViewData["Title"] = "Ingreso Operadores";
+    var recaptchaEnabled = ViewBag.RecaptchaEnabled as bool? == true;
+    var recaptchaSiteKey = ViewBag.RecaptchaSiteKey as string ?? string.Empty;
+    var recaptchaAction = ViewBag.RecaptchaAction as string ?? "login";
+    var recaptchaVersion = ViewBag.RecaptchaVersion as string ?? "v2";
 }
 
 <div class="centered-page">
@@ -16,7 +20,8 @@
             <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.25rem;">Plataforma de Monitoreo SIMCRUL</p>
         </div>
 
-        <form asp-action="Login" method="post" class="modal-form" style="gap: 1.5rem;">
+        <form asp-action="Login" method="post" class="modal-form recaptcha-login-form" style="gap: 1.5rem;">
+            <input asp-for="RecaptchaToken" type="hidden" class="recaptcha-token" />
             <div asp-validation-summary="ModelOnly" style="color: var(--danger); font-size: 0.9rem; list-style: none;"></div>
 
             <div>
@@ -30,6 +35,12 @@
                 <input asp-for="Password" type="password" class="custom-input" placeholder="********" autocomplete="current-password" />
                 <span asp-validation-for="Password" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem; display: block;"></span>
             </div>
+
+            @if (recaptchaEnabled && string.Equals(recaptchaVersion, "v2", StringComparison.OrdinalIgnoreCase))
+            {
+                <div class="g-recaptcha" data-sitekey="@recaptchaSiteKey" data-callback="simcrulRecaptchaDone" data-expired-callback="simcrulRecaptchaExpired"></div>
+                <div id="recaptcha-login-error" style="display:none; color: var(--danger); font-size: 0.85rem;">Confirma el captcha para continuar.</div>
+            }
 
             <button type="submit" class="btn-primary" style="width: 100%; padding: 0.8rem; font-size: 1rem; border-radius: 12px; margin-top: 1rem;">
                 <i class="fa-solid fa-arrow-right-to-bracket"></i> Iniciar sesion
@@ -56,4 +67,54 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    @if (recaptchaEnabled)
+    {
+        if (string.Equals(recaptchaVersion, "v2", StringComparison.OrdinalIgnoreCase))
+        {
+            <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+            <script>
+                function simcrulRecaptchaDone(token) {
+                    document.querySelector('.recaptcha-token').value = token;
+                    document.getElementById('recaptcha-login-error').style.display = 'none';
+                }
+
+                function simcrulRecaptchaExpired() {
+                    document.querySelector('.recaptcha-token').value = '';
+                }
+
+                document.querySelector('.recaptcha-login-form')?.addEventListener('submit', event => {
+                    if (!document.querySelector('.recaptcha-token').value) {
+                        event.preventDefault();
+                        document.getElementById('recaptcha-login-error').style.display = 'block';
+                    }
+                });
+            </script>
+        }
+        else
+        {
+            <script src="https://www.google.com/recaptcha/api.js?render=@recaptchaSiteKey"></script>
+            <script>
+                (() => {
+                    const siteKey = '@recaptchaSiteKey';
+                    const action = '@recaptchaAction';
+                    const form = document.querySelector('.recaptcha-login-form');
+                    if (!form || !window.grecaptcha) return;
+
+                    form.addEventListener('submit', event => {
+                        if (form.dataset.recaptchaReady === 'true') return;
+                        event.preventDefault();
+                        grecaptcha.ready(() => {
+                            grecaptcha.execute(siteKey, { action }).then(token => {
+                                form.querySelector('.recaptcha-token').value = token;
+                                form.dataset.recaptchaReady = 'true';
+                                form.submit();
+                            }).catch(() => {
+                                alert('No se pudo validar reCAPTCHA. Revisa el tipo de clave configurada en Google.');
+                            });
+                        });
+                    });
+                })();
+            </script>
+        }
+    }
 }
