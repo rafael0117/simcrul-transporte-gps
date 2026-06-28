@@ -10,10 +10,12 @@ namespace SIMCRUL.Web.Controllers;
 public class PassengerController : Controller
 {
     private readonly ApiClient _apiClient;
+    private readonly IConfiguration _configuration;
 
-    public PassengerController(ApiClient apiClient)
+    public PassengerController(ApiClient apiClient, IConfiguration configuration)
     {
         _apiClient = apiClient;
+        _configuration = configuration;
     }
 
     public IActionResult Index()
@@ -30,6 +32,7 @@ public class PassengerController : Controller
         }
 
         ViewBag.ReturnUrl = returnUrl;
+        PopulateRecaptchaViewBag();
         return View(new LoginRequestDto());
     }
 
@@ -40,6 +43,7 @@ public class PassengerController : Controller
         if (!ModelState.IsValid)
         {
             ViewBag.ReturnUrl = returnUrl;
+            PopulateRecaptchaViewBag();
             return View(request);
         }
 
@@ -50,6 +54,7 @@ public class PassengerController : Controller
             {
                 ModelState.AddModelError(string.Empty, "No se recibio una respuesta valida del servidor.");
                 ViewBag.ReturnUrl = returnUrl;
+                PopulateRecaptchaViewBag();
                 return View(request);
             }
 
@@ -60,6 +65,7 @@ public class PassengerController : Controller
         {
             ModelState.AddModelError(string.Empty, $"No se pudo iniciar sesion: {ex.Message}");
             ViewBag.ReturnUrl = returnUrl;
+            PopulateRecaptchaViewBag();
             return View(request);
         }
     }
@@ -201,6 +207,15 @@ public class PassengerController : Controller
         HttpContext.Session.SetString("Username", response.Username);
         HttpContext.Session.SetString("Nombres", response.Nombres);
         HttpContext.Session.SetString("Apellidos", response.Apellidos);
+    }
+
+    private void PopulateRecaptchaViewBag()
+    {
+        ViewBag.RecaptchaEnabled = _configuration.GetValue<bool>("Recaptcha:Enabled") &&
+            !string.IsNullOrWhiteSpace(_configuration["Recaptcha:SiteKey"]);
+        ViewBag.RecaptchaSiteKey = _configuration["Recaptcha:SiteKey"] ?? string.Empty;
+        ViewBag.RecaptchaAction = _configuration["Recaptcha:LoginAction"] ?? "login";
+        ViewBag.RecaptchaVersion = _configuration["Recaptcha:Version"] ?? "v2";
     }
 
     private IActionResult RedirectToLocal(string? returnUrl, string defaultAction)

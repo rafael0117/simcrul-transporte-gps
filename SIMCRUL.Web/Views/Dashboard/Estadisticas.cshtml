@@ -535,7 +535,7 @@
 
             currentSummary = await response.json();
             document.getElementById('distance-kpi').textContent = `${formatNumber(currentSummary.distanciaRecorridaKm)} km`;
-            document.getElementById('time-kpi').textContent = `${formatNumber(currentSummary.tiempoOperativoMin / 60)} h`;
+            document.getElementById('time-kpi').textContent = formatDuration(currentSummary.tiempoOperativoMin);
             document.getElementById('speed-kpi').textContent = currentSummary.excesosVelocidad;
             document.getElementById('deviation-kpi').textContent = currentSummary.desviosRuta;
             document.getElementById('claims-kpi').textContent = currentSummary.reclamosRecibidos;
@@ -668,7 +668,7 @@
             }
             if (type === 'tiempo') {
                 const totalMinutes = rows.reduce((sum, row) => sum + row.tiempoOperativoMin, 0);
-                return `Bitacora operativa: ${rows.length} recorridos acumulan ${formatNumber(totalMinutes / 60)} horas de circulacion.`;
+                return `Bitacora operativa: ${rows.length} recorridos acumulan ${formatDuration(totalMinutes)} de circulacion.`;
             }
             if (type === 'velocidad') {
                 return `Se registraron ${rows.length} excesos de velocidad. Cada fila conserva vehiculo, ruta, fecha y valor detectado.`;
@@ -679,7 +679,7 @@
         function detailRow(type, row) {
             let value = `${row.eventos} evento(s)`;
             if (type === 'distancia') value = `${formatNumber(row.distanciaKm)} km`;
-            if (type === 'tiempo') value = `${formatNumber(row.tiempoOperativoMin / 60)} h`;
+            if (type === 'tiempo') value = formatDuration(row.tiempoOperativoMin);
             if (type === 'velocidad') value = `${formatNumber(row.valorMaximo || 0)} km/h`;
 
             return `<tr>
@@ -723,15 +723,32 @@
             const days = [];
 
             for (let current = new Date(from); current <= to && days.length < 14; current.setDate(current.getDate() + 1)) {
-                const label = current.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' });
+                const label = formatDayMonth(current);
                 days.push({ label, value: valuesByLabel.get(label) || 0 });
             }
 
             return days.length > 0 ? days : points;
         }
 
+        function formatDayMonth(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            return `${day}/${month}`;
+        }
+
         function formatNumber(value) {
             return Number(value || 0).toLocaleString('es-PE', { maximumFractionDigits: 1 });
+        }
+
+        function formatDuration(totalMinutes) {
+            const minutes = Math.max(0, Math.round(Number(totalMinutes || 0)));
+            if (minutes < 60) return `${minutes} min`;
+
+            const hours = Math.floor(minutes / 60);
+            const remainingMinutes = minutes % 60;
+            if (remainingMinutes === 0) return `${hours} h`;
+
+            return `${hours} h ${remainingMinutes} min`;
         }
 
         function formatDateTime(value) {

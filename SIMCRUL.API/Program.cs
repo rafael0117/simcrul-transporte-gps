@@ -16,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. JWT and Security Configuration
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("JwtOptions"));
 builder.Services.Configure<PasswordRecoveryOptions>(builder.Configuration.GetSection("PasswordRecovery"));
+builder.Services.Configure<RecaptchaOptions>(builder.Configuration.GetSection("Recaptcha"));
 var jwtSettings = builder.Configuration.GetSection("JwtOptions").Get<JwtOptions>() ?? new JwtOptions();
 var tokenKey = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
 
@@ -63,6 +64,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddHttpClient<IRecaptchaService, GoogleRecaptchaService>();
 builder.Services.AddScoped<IGpsProcessingService, GpsProcessingService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddSingleton<IFleetSimulationService, FleetSimulationService>();
