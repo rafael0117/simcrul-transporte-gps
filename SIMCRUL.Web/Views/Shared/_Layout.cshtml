@@ -76,6 +76,12 @@
                                 </a>
                             </li>
                             <li>
+                                <a asp-controller="Passenger" asp-action="TravelBoost" class="@NavLinkClass("Passenger", "TravelBoost")">
+                                    <i class="fa-solid fa-route"></i>
+                                    <span>Ruta en Vivo</span>
+                                </a>
+                            </li>
+                            <li>
                                 <a asp-controller="Dashboard" asp-action="Estadisticas" class="@NavLinkClass("Dashboard", "Estadisticas")">
                                     <i class="fa-solid fa-chart-line"></i>
                                     <span>Estadisticas</span>
@@ -159,6 +165,7 @@
                     @if (isPassengerSession)
                     {
                         <li><a asp-controller="Passenger" asp-action="Index">Telemetria en Tiempo Real</a></li>
+                        <li><a asp-controller="Passenger" asp-action="TravelBoost">Ruta en Vivo</a></li>
                         <li><a asp-controller="Passenger" asp-action="Requests">Mis Solicitudes</a></li>
                         <li><a asp-controller="Passenger" asp-action="DownloadRoutesPdf">Catalogo PDF</a></li>
                         <li><a asp-controller="Passenger" asp-action="Logout" class="btn-primary public-nav-cta" style="background: var(--danger);">Cerrar Sesion</a></li>
@@ -172,6 +179,7 @@
                     {
                         <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
                         <li><a asp-controller="Passenger" asp-action="Index">Telemetria en Tiempo Real</a></li>
+                        <li><a asp-controller="Passenger" asp-action="TravelBoost">Ruta en Vivo</a></li>
                         <li><a asp-controller="Passenger" asp-action="Register">Registro Pasajero</a></li>
                         <li><a asp-controller="Home" asp-action="Login" class="btn-primary public-nav-cta">Ingresar</a></li>
                     }

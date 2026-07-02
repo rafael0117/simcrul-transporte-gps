@@ -1,0 +1,1949 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    ViewData["Title"] = "Ruta en Vivo";
+    ViewData["HideChrome"] = true;
+    var googleMapsApiKey = Configuration["GoogleMaps:ApiKey"] ?? string.Empty;
+    var useGoogleMaps = bool.TryParse(Configuration["GoogleMaps:UseGoogleMaps"], out var enabled) && enabled;
+    var hasGoogleMapsKey = !string.IsNullOrWhiteSpace(googleMapsApiKey);
+}
+
+@section Styles {
+    <style>
+        .travel-page {
+            min-height: calc(100vh - 96px);
+            padding: 1.25rem;
+            background: #07111e;
+        }
+
+        .travel-stage {
+            display: grid;
+            grid-template-columns: 390px minmax(0, 1fr);
+            min-height: calc(100vh - 132px);
+            overflow: hidden;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 8px;
+            background: #0b1422;
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+        }
+
+        .travel-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 1.25rem;
+            overflow-y: auto;
+            border-right: 1px solid rgba(148, 163, 184, 0.16);
+            background: #0d1727;
+        }
+
+        .travel-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            color: #38bdf8;
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .travel-title {
+            margin: 0.45rem 0 0;
+            color: #f8fafc;
+            font-size: 1.75rem;
+            line-height: 1.08;
+        }
+
+        .travel-copy {
+            margin: 0.55rem 0 0;
+            color: #94a3b8;
+            line-height: 1.55;
+        }
+
+        .travel-field label,
+        .travel-stat span,
+        .travel-eta span {
+            display: block;
+            color: #94a3b8;
+            font-size: 0.82rem;
+        }
+
+        .travel-field select {
+            width: 100%;
+            min-height: 44px;
+            margin-top: 0.45rem;
+            padding: 0 0.85rem;
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 8px;
+            color: #f8fafc;
+            background: #111c2e;
+            outline: none;
+        }
+
+        .travel-stats {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+
+        .travel-stat,
+        .travel-eta,
+        .travel-stops,
+        .travel-controls {
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.78);
+        }
+
+        .travel-stat {
+            padding: 0.85rem;
+        }
+
+        .travel-stat strong {
+            display: block;
+            margin-top: 0.25rem;
+            color: #f8fafc;
+            font-size: 1.2rem;
+        }
+
+        .travel-eta {
+            padding: 1rem;
+        }
+
+        .travel-eta strong {
+            display: block;
+            margin-top: 0.25rem;
+            color: #facc15;
+            font-size: 2.4rem;
+            line-height: 1;
+        }
+
+        .travel-eta small {
+            display: block;
+            margin-top: 0.5rem;
+            color: #94a3b8;
+        }
+
+        .travel-stops {
+            padding: 0.85rem;
+        }
+
+        .travel-stops h2,
+        .travel-controls h2 {
+            margin: 0 0 0.8rem;
+            color: #e2e8f0;
+            font-size: 1rem;
+        }
+
+        .travel-stop-list {
+            display: grid;
+            gap: 0;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .travel-stop {
+            position: relative;
+            display: grid;
+            grid-template-columns: 30px minmax(0, 1fr);
+            gap: 0.65rem;
+            min-height: 62px;
+            color: #94a3b8;
+        }
+
+        .travel-stop::before {
+            content: "";
+            position: absolute;
+            left: 10px;
+            top: 22px;
+            bottom: -8px;
+            width: 2px;
+            background: rgba(148, 163, 184, 0.22);
+        }
+
+        .travel-stop:last-child::before {
+            display: none;
+        }
+
+        .travel-stop-light {
+            position: relative;
+            z-index: 1;
+            width: 22px;
+            height: 22px;
+            border: 2px solid rgba(148, 163, 184, 0.6);
+            border-radius: 999px;
+            background: #0f172a;
+        }
+
+        .travel-stop strong {
+            display: block;
+            color: #f8fafc;
+            line-height: 1.25;
+        }
+
+        .travel-stop small {
+            color: #94a3b8;
+        }
+
+        .travel-stop.is-passed .travel-stop-light,
+        .travel-stop.is-current .travel-stop-light {
+            border-color: #facc15;
+            background: #22c55e;
+            box-shadow: 0 0 0 7px rgba(34, 197, 94, 0.16);
+        }
+
+        .travel-stop.is-current .travel-stop-light {
+            animation: travelPulse 1.15s ease-in-out infinite;
+        }
+
+        .travel-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            padding: 0.85rem;
+        }
+
+        .travel-control-row {
+            display: flex;
+            gap: 0.65rem;
+        }
+
+        .travel-button {
+            flex: 1;
+            min-height: 40px;
+            border: 0;
+            border-radius: 8px;
+            color: #06111f;
+            background: #facc15;
+            font-weight: 800;
+        }
+
+        .travel-direction {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.55rem;
+            padding: 0.35rem;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            border-radius: 14px;
+            background: #f8fafc;
+        }
+
+        .travel-direction button {
+            min-height: 40px;
+            border: 0;
+            border-radius: 11px;
+            color: #475569;
+            background: transparent;
+            font-weight: 900;
+        }
+
+        .travel-direction button.is-active {
+            color: #fff;
+            background: #0b5cff;
+            box-shadow: 0 10px 22px rgba(11, 92, 255, 0.24);
+        }
+
+        .travel-button.secondary {
+            color: #e2e8f0;
+            background: #1f2937;
+        }
+
+        .travel-speed {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+
+        .travel-speed input {
+            flex: 1;
+        }
+
+        .travel-map-shell {
+            position: relative;
+            min-height: 620px;
+            background: #0f172a;
+        }
+
+        #travelMap {
+            position: absolute;
+            inset: 0;
+        }
+
+        .travel-map-overlay {
+            position: absolute;
+            z-index: 5;
+            top: 1rem;
+            left: 1rem;
+            right: 1rem;
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            pointer-events: none;
+        }
+
+        .travel-map-pill {
+            min-width: 150px;
+            padding: 0.75rem 0.9rem;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 8px;
+            color: #e2e8f0;
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(12px);
+        }
+
+        .travel-map-pill span {
+            display: block;
+            color: #94a3b8;
+            font-size: 0.78rem;
+        }
+
+        .travel-map-pill strong {
+            display: block;
+            margin-top: 0.2rem;
+            font-size: 1.05rem;
+        }
+
+        .travel-message {
+            position: absolute;
+            z-index: 6;
+            left: 50%;
+            bottom: 1rem;
+            max-width: min(520px, calc(100% - 2rem));
+            padding: 0.75rem 1rem;
+            border: 1px solid rgba(250, 204, 21, 0.35);
+            border-radius: 8px;
+            color: #fde68a;
+            background: rgba(67, 56, 20, 0.82);
+            transform: translateX(-50%);
+        }
+
+        .travel-fallback-road {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            background:
+                linear-gradient(30deg, transparent 0 42%, rgba(255, 255, 255, 0.13) 42% 48%, transparent 48%),
+                linear-gradient(125deg, transparent 0 48%, rgba(255, 255, 255, 0.1) 48% 54%, transparent 54%),
+                #162235;
+        }
+
+        .travel-fallback-path {
+            position: absolute;
+            left: 13%;
+            top: 16%;
+            width: 74%;
+            height: 68%;
+            border-left: 7px solid #facc15;
+            border-bottom: 7px solid #facc15;
+            transform: skew(-22deg) rotate(-12deg);
+            box-shadow: 0 0 0 5px rgba(56, 189, 248, 0.22);
+        }
+
+        .travel-fallback-bus {
+            position: absolute;
+            z-index: 3;
+            width: 36px;
+            height: 56px;
+            margin-left: -18px;
+            margin-top: -28px;
+            border: 3px solid #8a6100;
+            border-radius: 10px;
+            background: linear-gradient(#f8fafc 0 24%, #facc15 24% 74%, #f8fafc 74%);
+            box-shadow: 0 18px 30px rgba(0, 0, 0, 0.35);
+            transform: rotate(-24deg);
+        }
+
+        @@keyframes travelPulse {
+            0%, 100% {
+                box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.14);
+            }
+
+            50% {
+                box-shadow: 0 0 0 12px rgba(34, 197, 94, 0.28);
+            }
+        }
+
+        @@media (max-width: 1050px) {
+            .travel-stage {
+                grid-template-columns: 1fr;
+            }
+
+            .travel-panel {
+                border-right: 0;
+                border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+            }
+        }
+
+        @@media (max-width: 640px) {
+            .travel-page {
+                padding: 0.75rem;
+            }
+
+            .travel-stats,
+            .travel-map-overlay {
+                grid-template-columns: 1fr;
+                flex-direction: column;
+            }
+
+            .travel-map-shell {
+                min-height: 520px;
+            }
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .travel-page {
+            position: fixed;
+            inset: 0;
+            min-height: 100vh;
+            padding: 0;
+            background: #edf3f7;
+        }
+
+        .travel-stage {
+            position: absolute;
+            inset: 0;
+            display: block;
+            min-height: 100vh;
+            overflow: hidden;
+            border: 0;
+            border-radius: 0;
+            background: #edf3f7;
+            box-shadow: none;
+        }
+
+        .travel-topbar {
+            position: absolute;
+            z-index: 20;
+            top: 18px;
+            left: 18px;
+            right: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            pointer-events: none;
+        }
+
+        .travel-brand,
+        .travel-back-button,
+        .travel-live-chip,
+        .travel-map-pill,
+        .travel-panel,
+        .travel-bottom-card {
+            border: 1px solid rgba(15, 23, 42, 0.09);
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: 0 18px 44px rgba(15, 23, 42, 0.16);
+            backdrop-filter: blur(16px);
+        }
+
+        .travel-brand,
+        .travel-back-button,
+        .travel-live-chip {
+            display: inline-flex;
+            align-items: center;
+            min-height: 46px;
+            border-radius: 999px;
+            color: #0f172a;
+            font-weight: 900;
+            pointer-events: auto;
+        }
+
+        .travel-topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            min-width: 0;
+            pointer-events: auto;
+        }
+
+        .travel-brand {
+            gap: 0.65rem;
+            padding: 0 1rem;
+            color: #0b5cff;
+            letter-spacing: 0.02em;
+        }
+
+        .travel-brand i {
+            color: #00a86b;
+        }
+
+        .travel-back-button {
+            gap: 0.55rem;
+            padding: 0 0.95rem;
+            color: #0f172a;
+            text-decoration: none;
+        }
+
+        .travel-back-button i {
+            color: #0b5cff;
+        }
+
+        .travel-live-chip {
+            gap: 0.5rem;
+            padding: 0 0.95rem;
+            color: #0f5132;
+        }
+
+        .travel-live-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: #22c55e;
+            box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.18);
+        }
+
+        .travel-panel {
+            position: absolute;
+            z-index: 12;
+            top: 82px;
+            left: 18px;
+            width: min(390px, calc(100vw - 36px));
+            max-height: calc(100vh - 112px);
+            padding: 1rem;
+            gap: 0.85rem;
+            overflow-y: auto;
+            border-right: 1px solid rgba(15, 23, 42, 0.09);
+            border-radius: 18px;
+            color: #0f172a;
+        }
+
+        .travel-kicker {
+            color: #00a86b;
+            letter-spacing: 0.08em;
+        }
+
+        .travel-title {
+            margin-top: 0.3rem;
+            color: #0f172a;
+            font-size: 1.45rem;
+        }
+
+        .travel-copy {
+            color: #64748b;
+            font-size: 0.92rem;
+        }
+
+        .travel-field label,
+        .travel-stat span,
+        .travel-eta span,
+        .travel-eta small,
+        .travel-stop small,
+        .travel-speed {
+            color: #64748b;
+        }
+
+        .travel-field select {
+            min-height: 46px;
+            border-color: rgba(15, 23, 42, 0.12);
+            color: #0f172a;
+            background: #f8fafc;
+            font-weight: 800;
+        }
+
+        .travel-stat,
+        .travel-eta,
+        .travel-stops,
+        .travel-controls {
+            border-color: rgba(15, 23, 42, 0.08);
+            background: #f8fafc;
+        }
+
+        .travel-stat strong,
+        .travel-stops h2,
+        .travel-controls h2,
+        .travel-stop strong {
+            color: #0f172a;
+        }
+
+        .travel-stat strong {
+            font-size: 1.15rem;
+        }
+
+        .travel-eta {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            align-items: center;
+            column-gap: 1rem;
+        }
+
+        .travel-eta span,
+        .travel-eta small {
+            grid-column: 2;
+        }
+
+        .travel-eta strong {
+            grid-row: 1 / span 2;
+            color: #0b5cff;
+            font-size: 2.25rem;
+            white-space: nowrap;
+        }
+
+        .travel-stop {
+            min-height: 54px;
+        }
+
+        .travel-stop::before {
+            background: rgba(15, 23, 42, 0.12);
+        }
+
+        .travel-stop-light {
+            border-color: #cbd5e1;
+            background: #fff;
+        }
+
+        .travel-stop.is-passed .travel-stop-light,
+        .travel-stop.is-current .travel-stop-light {
+            border-color: #0b5cff;
+            background: #00c853;
+            box-shadow: 0 0 0 7px rgba(0, 200, 83, 0.15);
+        }
+
+        .travel-button {
+            color: #fff;
+            background: #0b5cff;
+        }
+
+        .travel-button.secondary {
+            color: #0f172a;
+            background: #e2e8f0;
+        }
+
+        .travel-map-shell {
+            position: absolute;
+            inset: 0;
+            min-height: 100vh;
+            background: #edf3f7;
+        }
+
+        #travelMap {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .travel-map-overlay {
+            top: auto;
+            left: auto;
+            right: 18px;
+            bottom: 18px;
+            width: min(580px, calc(100vw - 36px));
+            justify-content: flex-end;
+            pointer-events: none;
+        }
+
+        .travel-map-pill {
+            min-width: 0;
+            flex: 1;
+            border-radius: 16px;
+            color: #0f172a;
+        }
+
+        .travel-map-pill span {
+            color: #64748b;
+        }
+
+        .travel-message {
+            left: auto;
+            right: 18px;
+            bottom: 118px;
+            transform: none;
+            border-color: rgba(11, 92, 255, 0.16);
+            color: #0f172a;
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 14px 34px rgba(15, 23, 42, 0.12);
+        }
+
+        .travel-map-controls {
+            position: absolute;
+            z-index: 18;
+            right: 18px;
+            top: 82px;
+            display: grid;
+            gap: 0.65rem;
+        }
+
+        .travel-map-control {
+            width: 46px;
+            height: 46px;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            border-radius: 14px;
+            color: #0f172a;
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
+            backdrop-filter: blur(14px);
+        }
+
+        .travel-map-control.is-active {
+            color: #fff;
+            background: #0b5cff;
+        }
+
+        .taxi-marker {
+            --bearing: -24deg;
+            position: absolute;
+            width: 58px;
+            height: 72px;
+            transform: translate(-50%, -50%) rotate(var(--bearing));
+            transform-origin: 50% 50%;
+            transition: transform 160ms linear;
+            pointer-events: none;
+        }
+
+        .taxi-marker-shadow {
+            position: absolute;
+            left: 15px;
+            right: 15px;
+            bottom: 3px;
+            height: 13px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.28);
+            filter: blur(6px);
+            transform: rotate(24deg);
+        }
+
+        .taxi-car {
+            position: absolute;
+            inset: 5px 12px;
+            border: 2px solid #8a6100;
+            border-radius: 15px 15px 11px 11px;
+            background: linear-gradient(145deg, #fff176 0%, #facc15 42%, #f59e0b 100%);
+            box-shadow:
+                inset 4px 0 7px rgba(255, 255, 255, 0.34),
+                inset -4px 0 7px rgba(120, 53, 15, 0.22),
+                0 10px 20px rgba(15, 23, 42, 0.24);
+        }
+
+        .taxi-car::before,
+        .taxi-car::after {
+            content: "";
+            position: absolute;
+            left: 5px;
+            right: 5px;
+            border-radius: 7px;
+            background: linear-gradient(180deg, #e0f7ff 0%, #60a5fa 100%);
+            border: 1px solid #0f5ea8;
+        }
+
+        .taxi-car::before {
+            top: 7px;
+            height: 16px;
+        }
+
+        .taxi-car::after {
+            bottom: 10px;
+            height: 14px;
+            opacity: 0.85;
+        }
+
+        .taxi-light {
+            position: absolute;
+            top: 3px;
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background: #fff8b5;
+            box-shadow: 0 0 12px rgba(250, 204, 21, 0.75);
+        }
+
+        .taxi-light.left {
+            left: 8px;
+        }
+
+        .taxi-light.right {
+            right: 8px;
+        }
+
+        .taxi-wheel {
+            position: absolute;
+            width: 6px;
+            height: 14px;
+            border-radius: 999px;
+            background: #111827;
+        }
+
+        .taxi-wheel.left {
+            left: -6px;
+            top: 26px;
+        }
+
+        .taxi-wheel.right {
+            right: -6px;
+            top: 26px;
+        }
+
+        .gm-style .gm-style-iw-c,
+        .gm-style .gm-style-iw-tc::after {
+            border-radius: 14px;
+        }
+
+        @@media (max-width: 920px) {
+            .travel-panel {
+                top: auto;
+                left: 12px;
+                right: 12px;
+                bottom: 104px;
+                width: auto;
+                max-height: 46vh;
+            }
+
+            .travel-topbar {
+                top: 12px;
+                left: 12px;
+                right: 12px;
+            }
+
+            .travel-map-overlay {
+                left: 12px;
+                right: 12px;
+                bottom: 12px;
+                width: auto;
+            }
+
+            .travel-message {
+                display: none;
+            }
+
+            .travel-map-controls {
+                top: 70px;
+                right: 12px;
+            }
+        }
+
+        @@media (max-width: 640px) {
+            .travel-brand span {
+                display: none;
+            }
+
+            .travel-back-button span {
+                display: none;
+            }
+
+            .travel-live-chip {
+                font-size: 0.85rem;
+            }
+
+            .travel-panel {
+                max-height: 50vh;
+            }
+
+            .travel-stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .travel-map-overlay {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .travel-map-pill:first-child {
+                grid-column: 1 / -1;
+            }
+        }
+    </style>
+}
+
+<div class="travel-page">
+    <div class="travel-topbar">
+        <div class="travel-topbar-left">
+            <a class="travel-back-button" asp-controller="Passenger" asp-action="Index" aria-label="Volver al menu">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>Menu</span>
+            </a>
+            <a class="travel-brand" asp-controller="Passenger" asp-action="Index">
+                <i class="fa-solid fa-map-location-dot"></i>
+                <span>SIMCRUL</span>
+            </a>
+        </div>
+        <div class="travel-live-chip">
+            <span class="travel-live-dot"></span>
+            Seguimiento en vivo
+        </div>
+    </div>
+    <div class="travel-stage">
+        <aside class="travel-panel">
+            <section>
+                <span class="travel-kicker">
+                    <i class="fa-solid fa-location-arrow"></i>
+                    Ruta en vivo
+                </span>
+                <h1 class="travel-title">Consulta el avance de la unidad</h1>
+                <p class="travel-copy">
+                    Selecciona una ruta, elige ida o vuelta y revisa el tiempo estimado por paradero.
+                </p>
+            </section>
+
+            <section class="travel-field">
+                <label for="travel-route-select">Ruta monitoreada</label>
+                <select id="travel-route-select">
+                    <option value="">Cargando rutas...</option>
+                </select>
+            </section>
+
+            <section class="travel-direction" aria-label="Sentido de ruta">
+                <button type="button" class="is-active" id="travelDirectionOutbound">
+                    <i class="fa-solid fa-arrow-up-long"></i> Ida
+                </button>
+                <button type="button" id="travelDirectionReturn">
+                    <i class="fa-solid fa-arrow-down-long"></i> Vuelta
+                </button>
+            </section>
+
+            <section class="travel-stats">
+                <div class="travel-stat">
+                    <span>Unidad</span>
+                    <strong id="travelVehicle">--</strong>
+                </div>
+                <div class="travel-stat">
+                    <span>Velocidad</span>
+                    <strong id="travelSpeed">-- km/h</strong>
+                </div>
+                <div class="travel-stat">
+                    <span>Progreso</span>
+                    <strong id="travelProgressPanel">0%</strong>
+                </div>
+                <div class="travel-stat">
+                    <span>Paradero actual</span>
+                    <strong id="travelCurrentStop">--</strong>
+                </div>
+                <div class="travel-stat">
+                    <span>Duracion estimada</span>
+                    <strong id="travelDuration">-- min</strong>
+                </div>
+                <div class="travel-stat">
+                    <span>Sentido</span>
+                    <strong id="travelDirectionLabel">Ida</strong>
+                </div>
+            </section>
+
+            <section class="travel-eta">
+                <span>Tiempo estimado al siguiente paradero</span>
+                <strong id="travelEta">-- min</strong>
+                <small id="travelEtaHint">Esperando seleccion de ruta.</small>
+            </section>
+
+            <section class="travel-stops">
+                <h2>Paraderos de la ruta</h2>
+                <ol class="travel-stop-list" id="travelStopsList">
+                    <li class="travel-stop">
+                        <span class="travel-stop-light"></span>
+                        <div>
+                            <strong>Sin ruta seleccionada</strong>
+                            <small>Selecciona una ruta para iniciar.</small>
+                        </div>
+                    </li>
+                </ol>
+            </section>
+
+            <section class="travel-controls">
+                <h2>Controles</h2>
+                <div class="travel-control-row">
+                    <button class="travel-button" type="button" id="travelPlayPause">
+                        <i class="fa-solid fa-pause"></i> Pausar
+                    </button>
+                    <button class="travel-button secondary" type="button" id="travelRestart">
+                        <i class="fa-solid fa-rotate-left"></i> Reiniciar
+                    </button>
+                </div>
+                <label class="travel-speed">
+                    Velocidad
+                    <input id="travelAnimationSpeed" type="range" min="0.25" max="1.25" value="0.5" step="0.25" />
+                    <strong id="travelAnimationSpeedLabel">0.5x</strong>
+                </label>
+            </section>
+        </aside>
+
+        <section class="travel-map-shell">
+            <div id="travelMap"></div>
+            <div class="travel-map-controls">
+                <button type="button" class="travel-map-control" id="travelZoomIn" aria-label="Acercar mapa">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+                <button type="button" class="travel-map-control" id="travelZoomOut" aria-label="Alejar mapa">
+                    <i class="fa-solid fa-minus"></i>
+                </button>
+                <button type="button" class="travel-map-control is-active" id="travelFollowToggle" aria-label="Seguir vehiculo">
+                    <i class="fa-solid fa-location-crosshairs"></i>
+                </button>
+            </div>
+            <div class="travel-map-overlay">
+                <div class="travel-map-pill">
+                    <span>Ruta</span>
+                    <strong id="travelRouteName">--</strong>
+                </div>
+                <div class="travel-map-pill">
+                    <span>Motor</span>
+                    <strong id="travelMapProvider">@(useGoogleMaps && hasGoogleMapsKey ? "Google Maps" : "Leaflet")</strong>
+                </div>
+                <div class="travel-map-pill">
+                    <span>Avance</span>
+                    <strong id="travelProgressMap">0%</strong>
+                </div>
+            </div>
+            <div class="travel-message" id="travelMessage">
+                Selecciona una ruta para iniciar la animacion.
+            </div>
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    <script>
+        const apiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
+        const signalrUrl = '@Configuration["ApiSettings:SignalrUrl"]';
+        const useGoogleMapsConfigured = @((useGoogleMaps && hasGoogleMapsKey).ToString().ToLowerInvariant());
+        const googleMapsApiKey = '@googleMapsApiKey';
+
+        const elements = {
+            select: document.getElementById('travel-route-select'),
+            map: document.getElementById('travelMap'),
+            stopsList: document.getElementById('travelStopsList'),
+            vehicle: document.getElementById('travelVehicle'),
+            speed: document.getElementById('travelSpeed'),
+            progressPanel: document.getElementById('travelProgressPanel'),
+            progressMap: document.getElementById('travelProgressMap'),
+            currentStop: document.getElementById('travelCurrentStop'),
+            eta: document.getElementById('travelEta'),
+            etaHint: document.getElementById('travelEtaHint'),
+            routeName: document.getElementById('travelRouteName'),
+            provider: document.getElementById('travelMapProvider'),
+            message: document.getElementById('travelMessage'),
+            playPause: document.getElementById('travelPlayPause'),
+            restart: document.getElementById('travelRestart'),
+            speedControl: document.getElementById('travelAnimationSpeed'),
+            speedLabel: document.getElementById('travelAnimationSpeedLabel'),
+            duration: document.getElementById('travelDuration'),
+            directionLabel: document.getElementById('travelDirectionLabel'),
+            directionOutbound: document.getElementById('travelDirectionOutbound'),
+            directionReturn: document.getElementById('travelDirectionReturn'),
+            zoomIn: document.getElementById('travelZoomIn'),
+            zoomOut: document.getElementById('travelZoomOut'),
+            followToggle: document.getElementById('travelFollowToggle')
+        };
+
+        let routesList = [];
+        let selectedRouteId = null;
+        let activeRouteDetail = null;
+        let routePath = [];
+        let routeStops = [];
+        let routeVehicles = [];
+        let selectedVehicle = null;
+        let animationProgress = 0;
+        let animationFrame = null;
+        let lastFrameAt = null;
+        let isPaused = false;
+        let animationSpeed = 0.5;
+        let routeDistanceMeters = 0;
+        let selectedDirection = 'ida';
+        let routeDurationMinutes = 75;
+        let simulationFullRouteMs = 90000;
+        let lastRenderedPoint = null;
+        let followVehicle = true;
+        let lastCameraMoveAt = 0;
+        let suppressMapInteraction = false;
+        let lastTelemetryAt = null;
+        let freezeAnimationUntil = 0;
+
+        let useGoogleMaps = false;
+        let googleMap = null;
+        let googleMapsLibrary = null;
+        let googleBusMarker = null;
+        let googleVehicleOverlay = null;
+        let googleRoutePolyline = null;
+        let googlePassedPolyline = null;
+        let googleStopMarkers = [];
+        let leafletMap = null;
+        let leafletBusMarker = null;
+        let leafletBusElement = null;
+        let leafletRoutePolyline = null;
+        let leafletPassedPolyline = null;
+        let leafletStopMarkers = [];
+
+        const initialCenter = { lat: -12.046374, lng: -77.042793 };
+        const directionProfiles = {
+            '8108-C': {
+                ida: { minutes: 172, label: 'Villa El Salvador -> Puente Piedra' },
+                vuelta: { minutes: 190, label: 'Puente Piedra -> Villa El Salvador' }
+            }
+        };
+
+        function createBusSvg(bearing = -24) {
+            return `
+            <svg xmlns="http://www.w3.org/2000/svg" width="88" height="104" viewBox="0 0 88 104">
+                <defs>
+                    <linearGradient id="body" x1="18" y1="8" x2="70" y2="96" gradientUnits="userSpaceOnUse">
+                        <stop offset="0" stop-color="#fff176"/>
+                        <stop offset="0.38" stop-color="#ffc928"/>
+                        <stop offset="1" stop-color="#f59e0b"/>
+                    </linearGradient>
+                    <linearGradient id="glass" x1="26" y1="10" x2="62" y2="86" gradientUnits="userSpaceOnUse">
+                        <stop offset="0" stop-color="#e0f7ff"/>
+                        <stop offset="1" stop-color="#60a5fa"/>
+                    </linearGradient>
+                    <filter id="shadow" x="-40%" y="-30%" width="180%" height="180%">
+                        <feDropShadow dx="0" dy="12" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.35"/>
+                    </filter>
+                </defs>
+                <g transform="rotate(${bearing} 44 52)" filter="url(#shadow)">
+                    <path d="M25 8h38c8 0 14 7 15 16l4 46c1 11-6 22-17 24-14 3-28 3-42 0C12 92 5 81 6 70l4-46C11 15 17 8 25 8Z" fill="url(#body)" stroke="#8a6100" stroke-width="3"/>
+                    <path d="M28 13h32c6 0 10 5 11 12l2 18c-19 5-39 5-58 0l2-18c1-7 5-12 11-12Z" fill="#ffe082" opacity="0.85"/>
+                    <path d="M27 19h34c4 0 7 3 8 8l1 11c-17 4-35 4-52 0l1-11c1-5 4-8 8-8Z" fill="url(#glass)" stroke="#0f5ea8" stroke-width="2"/>
+                    <path d="M20 50c16 5 32 5 48 0l2 22c-17 6-35 6-52 0l2-22Z" fill="#ffd33d" stroke="#d97706" stroke-width="2"/>
+                    <path d="M24 56c13 3 27 3 40 0l1 11c-14 4-28 4-42 0l1-11Z" fill="url(#glass)" opacity="0.75"/>
+                    <path d="M16 42c18 6 38 6 56 0" fill="none" stroke="#8a6100" stroke-width="3" stroke-linecap="round"/>
+                    <rect x="3" y="34" width="8" height="18" rx="4" fill="#111827"/>
+                    <rect x="77" y="34" width="8" height="18" rx="4" fill="#111827"/>
+                    <circle cx="24" cy="88" r="4" fill="#111827"/>
+                    <circle cx="64" cy="88" r="4" fill="#111827"/>
+                    <circle cx="23" cy="13" r="3" fill="#fff8b5"/>
+                    <circle cx="65" cy="13" r="3" fill="#fff8b5"/>
+                    <path d="M35 9h18" stroke="#fff7ad" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
+                </g>
+            </svg>`;
+        }
+
+        function createGoogleBusIcon(bearing) {
+            return {
+                url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(createBusSvg(bearing))}`,
+                scaledSize: new google.maps.Size(58, 72),
+                anchor: new google.maps.Point(29, 36)
+            };
+        }
+
+        function createLeafletBusIcon(bearing) {
+            return L.divIcon({
+                className: '',
+                html: createTaxiMarkerHtml(bearing),
+                iconSize: [58, 72],
+                iconAnchor: [29, 36]
+            });
+        }
+
+        function createTaxiMarkerHtml(bearing = -24) {
+            return `
+                <div class="taxi-marker" style="--bearing:${bearing}deg">
+                    <span class="taxi-marker-shadow"></span>
+                    <span class="taxi-car">
+                        <span class="taxi-light left"></span>
+                        <span class="taxi-light right"></span>
+                        <span class="taxi-wheel left"></span>
+                        <span class="taxi-wheel right"></span>
+                    </span>
+                </div>`;
+        }
+
+        function createVehicleOverlay(position, map) {
+            class VehicleOverlay extends google.maps.OverlayView {
+                constructor(initialPosition, mapInstance) {
+                    super();
+                    this.position = initialPosition;
+                    this.bearing = -24;
+                    this.element = document.createElement('div');
+                    this.element.innerHTML = createTaxiMarkerHtml(this.bearing);
+                    this.markerElement = this.element.firstElementChild;
+                    this.setMap(mapInstance);
+                }
+
+                onAdd() {
+                    this.getPanes().overlayMouseTarget.appendChild(this.element);
+                }
+
+                draw() {
+                    const projection = this.getProjection();
+                    if (!projection || !this.markerElement) {
+                        return;
+                    }
+
+                    const pixel = projection.fromLatLngToDivPixel(new google.maps.LatLng(this.position.lat, this.position.lng));
+                    this.markerElement.style.left = `${pixel.x}px`;
+                    this.markerElement.style.top = `${pixel.y}px`;
+                    this.markerElement.style.setProperty('--bearing', `${this.bearing}deg`);
+                }
+
+                onRemove() {
+                    this.element.remove();
+                }
+
+                setPosition(position, bearing) {
+                    this.position = position;
+                    this.bearing = bearing;
+                    this.draw();
+                }
+            }
+
+            return new VehicleOverlay(position, map);
+        }
+
+        function setFollowVehicle(enabled) {
+            followVehicle = enabled;
+            elements.followToggle?.classList.toggle('is-active', enabled);
+        }
+
+        function freezeSimulation(milliseconds = 1000) {
+            freezeAnimationUntil = Math.max(freezeAnimationUntil, performance.now() + milliseconds);
+            lastFrameAt = performance.now();
+        }
+
+        function clamp(value, min, max) {
+            return Math.min(Math.max(value, min), max);
+        }
+
+        function toPoint(source) {
+            return {
+                lat: Number(source.latitud ?? source.lat ?? 0),
+                lng: Number(source.longitud ?? source.lng ?? 0)
+            };
+        }
+
+        function distanceMeters(a, b) {
+            const radius = 6371000;
+            const dLat = (b.lat - a.lat) * Math.PI / 180;
+            const dLng = (b.lng - a.lng) * Math.PI / 180;
+            const left = Math.sin(dLat / 2) * Math.sin(dLat / 2);
+            const right = Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            return radius * 2 * Math.atan2(Math.sqrt(left + right), Math.sqrt(1 - left - right));
+        }
+
+        function bearingDegrees(from, to) {
+            if (!from || !to) {
+                return -24;
+            }
+
+            const lat1 = from.lat * Math.PI / 180;
+            const lat2 = to.lat * Math.PI / 180;
+            const dLng = (to.lng - from.lng) * Math.PI / 180;
+            const y = Math.sin(dLng) * Math.cos(lat2);
+            const x = Math.cos(lat1) * Math.sin(lat2) -
+                Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+            return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+        }
+
+        function easeInOut(progress) {
+            return 0.5 - Math.cos(Math.PI * clamp(progress, 0, 1)) / 2;
+        }
+
+        function interpolatePoint(from, to, progress) {
+            const eased = easeInOut(progress);
+            return {
+                lat: from.lat + ((to.lat - from.lat) * eased),
+                lng: from.lng + ((to.lng - from.lng) * eased)
+            };
+        }
+
+        function buildDistanceIndex(path) {
+            let total = 0;
+            const segments = [0];
+            for (let index = 1; index < path.length; index++) {
+                total += distanceMeters(path[index - 1], path[index]);
+                segments.push(total);
+            }
+            routeDistanceMeters = total;
+            return segments;
+        }
+
+        let distanceIndex = [];
+
+        function normalizeRouteCode(route) {
+            return String(route?.codigoRuta || route?.CodigoRuta || route?.code || '').trim().toUpperCase();
+        }
+
+        function getSelectedRouteSummary() {
+            return routesList.find(route => Number(route.idRuta) === Number(selectedRouteId));
+        }
+
+        function getBaseRouteMinutes(routeSummary, routeDetail) {
+            const raw = routeSummary?.tiempoEstimadoMin ??
+                routeSummary?.TiempoEstimadoMin ??
+                routeDetail?.tiempoEstimadoMin ??
+                routeDetail?.TiempoEstimadoMin;
+            return Math.max(Number(raw) || 75, 1);
+        }
+
+        function resolveDirectionProfile(routeSummary, routeDetail) {
+            const code = normalizeRouteCode(routeSummary);
+            const baseMinutes = getBaseRouteMinutes(routeSummary, routeDetail);
+            const configured = directionProfiles[code];
+            if (configured) {
+                return configured[selectedDirection];
+            }
+
+            return {
+                minutes: selectedDirection === 'ida'
+                    ? baseMinutes
+                    : Math.round(baseMinutes * 1.12),
+                label: selectedDirection === 'ida' ? 'Ida' : 'Vuelta'
+            };
+        }
+
+        function getScheduledMinutesForStop(stop, index, totalStops) {
+            if (typeof stop.scheduledMinute === 'number') {
+                return stop.scheduledMinute;
+            }
+
+            if (totalStops <= 1) {
+                return 0;
+            }
+
+            return Math.round((index / (totalStops - 1)) * routeDurationMinutes);
+        }
+
+        function getPointAtProgress(progress) {
+            if (!routePath.length) {
+                return initialCenter;
+            }
+
+            if (routePath.length === 1 || routeDistanceMeters <= 0) {
+                return routePath[0];
+            }
+
+            const targetDistance = clamp(progress, 0, 1) * routeDistanceMeters;
+            let segmentIndex = 1;
+            while (segmentIndex < distanceIndex.length && distanceIndex[segmentIndex] < targetDistance) {
+                segmentIndex++;
+            }
+
+            const previousDistance = distanceIndex[segmentIndex - 1] ?? 0;
+            const nextDistance = distanceIndex[segmentIndex] ?? previousDistance;
+            const segmentLength = Math.max(nextDistance - previousDistance, 1);
+            const segmentProgress = clamp((targetDistance - previousDistance) / segmentLength, 0, 1);
+            const from = routePath[segmentIndex - 1] ?? routePath[0];
+            const to = routePath[segmentIndex] ?? routePath[routePath.length - 1];
+
+            return {
+                lat: from.lat + ((to.lat - from.lat) * segmentProgress),
+                lng: from.lng + ((to.lng - from.lng) * segmentProgress)
+            };
+        }
+
+        function getProgressForPoint(point) {
+            if (!routePath.length || routeDistanceMeters <= 0) {
+                return 0;
+            }
+
+            let nearest = { distance: Number.MAX_VALUE, progress: 0 };
+            routePath.forEach((pathPoint, index) => {
+                const currentDistance = distanceMeters(point, pathPoint);
+                if (currentDistance < nearest.distance) {
+                    nearest = {
+                        distance: currentDistance,
+                        progress: (distanceIndex[index] ?? 0) / routeDistanceMeters
+                    };
+                }
+            });
+
+            return nearest.progress;
+        }
+
+        function getActiveStopIndex(progress) {
+            if (!routeStops.length) {
+                return -1;
+            }
+
+            let activeIndex = 0;
+            routeStops.forEach((stop, index) => {
+                if (progress >= stop.progress - 0.02) {
+                    activeIndex = index;
+                }
+            });
+            return activeIndex;
+        }
+
+        function estimateEta(progress, activeStopIndex) {
+            if (!selectedVehicle || !routeStops.length) {
+                return null;
+            }
+
+            const nextStop = routeStops[Math.min(activeStopIndex + 1, routeStops.length - 1)];
+            if (!nextStop) {
+                return null;
+            }
+
+            const currentMinute = clamp(progress, 0, 1) * routeDurationMinutes;
+            const remainingMinutes = Math.max(Math.round(nextStop.scheduledMinute - currentMinute), 0);
+            const currentDistance = clamp(progress, 0, 1) * routeDistanceMeters;
+            const nextDistance = nextStop.progress * routeDistanceMeters;
+            const remainingMeters = Math.max(nextDistance - currentDistance, 0);
+            return { etaMinutes: remainingMinutes, nextStop, remainingMeters };
+        }
+
+        async function loadGoogleMapsApi() {
+            if (window.google && window.google.maps) {
+                return;
+            }
+
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&v=weekly`;
+                script.async = true;
+                script.defer = true;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        async function initializeMap() {
+            if (useGoogleMapsConfigured) {
+                try {
+                    await loadGoogleMapsApi();
+                    const { Map } = await google.maps.importLibrary('maps');
+                    googleMapsLibrary = google.maps;
+                    googleMap = new Map(elements.map, {
+                        center: initialCenter,
+                        zoom: 14,
+                        mapTypeControl: false,
+                        streetViewControl: false,
+                        fullscreenControl: true,
+                        gestureHandling: 'greedy',
+                        disableDefaultUI: false,
+                        styles: [
+                            { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+                            { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+                            { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+                            { featureType: 'water', stylers: [{ color: '#cdeaf8' }] }
+                        ]
+                    });
+                    googleMap.addListener('dragstart', () => {
+                        freezeSimulation(900);
+                        if (!suppressMapInteraction) setFollowVehicle(false);
+                    });
+                    googleMap.addListener('zoom_changed', () => {
+                        freezeSimulation(1400);
+                        if (!suppressMapInteraction) setFollowVehicle(false);
+                    });
+                    googleMap.addListener('bounds_changed', () => {
+                        if (!suppressMapInteraction) {
+                            freezeSimulation(450);
+                        }
+                    });
+                    useGoogleMaps = true;
+                    elements.provider.textContent = 'Google Maps';
+                    return;
+                } catch (error) {
+                    console.error(error);
+                    elements.provider.textContent = 'Leaflet';
+                }
+            }
+
+            useGoogleMaps = false;
+            leafletMap = L.map('travelMap', { zoomControl: true }).setView([initialCenter.lat, initialCenter.lng], 13);
+            leafletMap.on('dragstart zoomstart', () => {
+                freezeSimulation(1200);
+                if (!suppressMapInteraction) setFollowVehicle(false);
+            });
+            leafletMap.on('resize zoomend moveend', () => freezeSimulation(650));
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
+            }).addTo(leafletMap);
+        }
+
+        function clearMap() {
+            if (googleRoutePolyline) googleRoutePolyline.setMap(null);
+            if (googlePassedPolyline) googlePassedPolyline.setMap(null);
+            if (googleBusMarker) googleBusMarker.setMap(null);
+            if (googleVehicleOverlay) googleVehicleOverlay.setMap(null);
+            googleStopMarkers.forEach(marker => marker.setMap(null));
+            googleStopMarkers = [];
+            googleRoutePolyline = null;
+            googlePassedPolyline = null;
+            googleBusMarker = null;
+            googleVehicleOverlay = null;
+
+            if (leafletRoutePolyline) leafletMap.removeLayer(leafletRoutePolyline);
+            if (leafletPassedPolyline) leafletMap.removeLayer(leafletPassedPolyline);
+            if (leafletBusMarker) leafletMap.removeLayer(leafletBusMarker);
+            leafletStopMarkers.forEach(marker => leafletMap.removeLayer(marker));
+            leafletStopMarkers = [];
+            leafletRoutePolyline = null;
+            leafletPassedPolyline = null;
+            leafletBusMarker = null;
+        }
+
+        function renderStopsPanel() {
+            if (!routeStops.length) {
+                elements.stopsList.innerHTML = '<li class="travel-stop"><span class="travel-stop-light"></span><div><strong>Sin paraderos</strong><small>Esta ruta no tiene paraderos configurados.</small></div></li>';
+                return;
+            }
+
+            elements.stopsList.innerHTML = routeStops.map((stop, index) => `
+                <li class="travel-stop" data-stop-index="${index}">
+                    <span class="travel-stop-light"></span>
+                    <div>
+                        <strong>${stop.order}. ${stop.name}</strong>
+                        <small>${stop.reference || 'Paradero de ruta'} - min ${stop.scheduledMinute}</small>
+                    </div>
+                </li>`).join('');
+        }
+
+        function renderRouteVisuals() {
+            clearMap();
+            if (!routePath.length) {
+                return;
+            }
+
+            if (useGoogleMaps && googleMap) {
+                const bounds = new google.maps.LatLngBounds();
+                routePath.forEach(point => bounds.extend(point));
+                suppressMapInteraction = true;
+                freezeSimulation(900);
+                googleMap.fitBounds(bounds, {
+                    top: 96,
+                    right: 48,
+                    bottom: 150,
+                    left: window.innerWidth > 920 ? 440 : 48
+                });
+                window.setTimeout(() => suppressMapInteraction = false, 500);
+
+                googleRoutePolyline = new google.maps.Polyline({
+                    map: googleMap,
+                    path: routePath,
+                    strokeColor: '#0f172a',
+                    strokeOpacity: 0.36,
+                    strokeWeight: 10
+                });
+
+                googlePassedPolyline = new google.maps.Polyline({
+                    map: googleMap,
+                    path: [routePath[0]],
+                    strokeColor: '#facc15',
+                    strokeOpacity: 1,
+                    strokeWeight: 6
+                });
+
+                routeStops.forEach((stop, index) => {
+                    const marker = new google.maps.Marker({
+                        position: stop.point,
+                        map: googleMap,
+                        title: stop.name,
+                        label: `${index + 1}`,
+                        icon: {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            scale: 8,
+                            fillColor: '#ffffff',
+                            fillOpacity: 1,
+                            strokeColor: '#0f172a',
+                            strokeWeight: 2
+                        }
+                    });
+                    googleStopMarkers.push(marker);
+                });
+
+                googleVehicleOverlay = createVehicleOverlay(routePath[0], googleMap);
+                return;
+            }
+
+            const latLngPath = routePath.map(point => [point.lat, point.lng]);
+            leafletRoutePolyline = L.polyline(latLngPath, { color: '#0ea5e9', weight: 8, opacity: 0.32 }).addTo(leafletMap);
+            leafletPassedPolyline = L.polyline([latLngPath[0]], { color: '#facc15', weight: 5, opacity: 1 }).addTo(leafletMap);
+            leafletMap.fitBounds(leafletRoutePolyline.getBounds(), { padding: [70, 70] });
+
+            routeStops.forEach((stop, index) => {
+                const marker = L.circleMarker([stop.point.lat, stop.point.lng], {
+                    radius: 8,
+                    color: '#0f172a',
+                    weight: 2,
+                    fillColor: '#ffffff',
+                    fillOpacity: 1
+                }).addTo(leafletMap).bindTooltip(`${index + 1}. ${stop.name}`);
+                leafletStopMarkers.push(marker);
+            });
+
+            leafletBusMarker = L.marker([routePath[0].lat, routePath[0].lng], {
+                icon: createLeafletBusIcon(-24)
+            }).addTo(leafletMap);
+            leafletBusElement = leafletBusMarker.getElement()?.querySelector('.taxi-marker') || null;
+        }
+
+        function updateMapPosition(point, progress, activeStopIndex, bearing = -24) {
+            const passedPath = [];
+            const targetDistance = progress * routeDistanceMeters;
+            for (let index = 0; index < routePath.length; index++) {
+                if ((distanceIndex[index] ?? 0) <= targetDistance) {
+                    passedPath.push(routePath[index]);
+                }
+            }
+            passedPath.push(point);
+
+            if (useGoogleMaps && googleMap) {
+                googleVehicleOverlay?.setPosition(point, bearing);
+                googlePassedPolyline?.setPath(passedPath);
+                if (followVehicle && performance.now() - lastCameraMoveAt > 450) {
+                    suppressMapInteraction = true;
+                    googleMap.panTo(point);
+                    lastCameraMoveAt = performance.now();
+                    window.setTimeout(() => suppressMapInteraction = false, 250);
+                }
+
+                googleStopMarkers.forEach((marker, index) => {
+                    marker.setIcon({
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: index === activeStopIndex ? 12 : 8,
+                        fillColor: index <= activeStopIndex ? '#22c55e' : '#ffffff',
+                        fillOpacity: 1,
+                        strokeColor: index === activeStopIndex ? '#facc15' : '#0f172a',
+                        strokeWeight: index === activeStopIndex ? 4 : 2
+                    });
+                });
+                return;
+            }
+
+            leafletBusMarker?.setLatLng([point.lat, point.lng]);
+            const taxiElement = leafletBusMarker?.getElement()?.querySelector('.taxi-marker');
+            taxiElement?.style.setProperty('--bearing', `${bearing}deg`);
+            leafletPassedPolyline?.setLatLngs(passedPath.map(item => [item.lat, item.lng]));
+            if (followVehicle && performance.now() - lastCameraMoveAt > 450) {
+                suppressMapInteraction = true;
+                leafletMap?.panTo([point.lat, point.lng], { animate: true, duration: 0.35 });
+                lastCameraMoveAt = performance.now();
+                window.setTimeout(() => suppressMapInteraction = false, 250);
+            }
+            leafletStopMarkers.forEach((marker, index) => {
+                marker.setStyle({
+                    radius: index === activeStopIndex ? 12 : 8,
+                    fillColor: index <= activeStopIndex ? '#22c55e' : '#ffffff',
+                    color: index === activeStopIndex ? '#facc15' : '#0f172a',
+                    weight: index === activeStopIndex ? 4 : 2
+                });
+            });
+        }
+
+        function updatePanel(progress) {
+            const activeStopIndex = getActiveStopIndex(progress);
+            const activeStop = routeStops[activeStopIndex];
+            const eta = estimateEta(progress, activeStopIndex);
+            const progressText = `${Math.round(progress * 100)}%`;
+
+            elements.progressPanel.textContent = progressText;
+            elements.progressMap.textContent = progressText;
+            elements.currentStop.textContent = activeStop ? activeStop.name : '--';
+            elements.vehicle.textContent = selectedVehicle?.placa || selectedVehicle?.codigoInterno || 'Unidad demo';
+            const averageSpeed = routeDistanceMeters > 0 && routeDurationMinutes > 0
+                ? Math.round((routeDistanceMeters / 1000) / (routeDurationMinutes / 60))
+                : Math.round(Number(selectedVehicle?.velocidadKmh) || 24);
+            elements.speed.textContent = `${averageSpeed} km/h`;
+            elements.duration.textContent = `${routeDurationMinutes} min`;
+            elements.directionLabel.textContent = selectedDirection === 'ida' ? 'Ida' : 'Vuelta';
+
+            if (eta) {
+                elements.eta.textContent = eta.etaMinutes === 0 ? 'Llegando' : `${eta.etaMinutes} min`;
+                elements.etaHint.textContent = `Siguiente: ${eta.nextStop.name} - ${(eta.remainingMeters / 1000).toFixed(2)} km restantes.`;
+            }
+
+            document.querySelectorAll('.travel-stop').forEach((item, index) => {
+                item.classList.toggle('is-passed', index < activeStopIndex);
+                item.classList.toggle('is-current', index === activeStopIndex);
+            });
+        }
+
+        function renderVehicleAt(point, progress) {
+            const bearing = bearingDegrees(lastRenderedPoint, point);
+            const activeStopIndex = getActiveStopIndex(progress);
+            updateMapPosition(point, progress, activeStopIndex, bearing);
+            updatePanel(progress);
+            lastRenderedPoint = point;
+        }
+
+        function animationLoop(now) {
+            if (!lastFrameAt) {
+                lastFrameAt = now;
+            }
+
+            const delta = clamp(now - lastFrameAt, 0, 80);
+            lastFrameAt = now;
+
+            if (now < freezeAnimationUntil) {
+                animationFrame = requestAnimationFrame(animationLoop);
+                return;
+            }
+
+            if (!isPaused && routePath.length > 1) {
+                animationProgress = clamp(animationProgress + ((delta / simulationFullRouteMs) * animationSpeed), 0, 1);
+                renderVehicleAt(getPointAtProgress(animationProgress), animationProgress);
+
+                if (animationProgress >= 1) {
+                    isPaused = true;
+                    elements.playPause.innerHTML = '<i class="fa-solid fa-play"></i> Reproducir';
+                    elements.message.textContent = 'La unidad llego al terminal. Usa Reiniciar o cambia el sentido de ruta.';
+                }
+            }
+
+            animationFrame = requestAnimationFrame(animationLoop);
+        }
+
+        function startAnimation() {
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+            lastFrameAt = null;
+            animationFrame = requestAnimationFrame(animationLoop);
+        }
+
+        async function fetchRoutes() {
+            const response = await fetch(`${apiBaseUrl}dashboard/routes`);
+            if (!response.ok) {
+                throw new Error('No se pudieron cargar las rutas.');
+            }
+
+            routesList = await response.json();
+            elements.select.innerHTML = '<option value="">Selecciona una ruta</option>';
+            routesList.forEach(route => {
+                elements.select.innerHTML += `<option value="${route.idRuta}">${route.codigoRuta} - ${route.nombreRuta}</option>`;
+            });
+        }
+
+        async function fetchActiveVehicles(routeId) {
+            const response = await fetch(`${apiBaseUrl}dashboard/active-vehicles`);
+            if (!response.ok) {
+                return [];
+            }
+
+            const vehicles = await response.json();
+            return vehicles.filter(vehicle => Number(vehicle.idRuta) === Number(routeId));
+        }
+
+        function buildRouteData(routeDetail) {
+            const routeSummary = getSelectedRouteSummary();
+            const directionProfile = resolveDirectionProfile(routeSummary, routeDetail);
+            routeDurationMinutes = directionProfile.minutes;
+            simulationFullRouteMs = clamp(routeDurationMinutes * 2400, 180000, 540000);
+
+            let controlPoints = (routeDetail.rutaPuntosControl || [])
+                .slice()
+                .sort((a, b) => a.orden - b.orden)
+                .map(toPoint)
+                .filter(point => point.lat && point.lng);
+
+            let stops = (routeDetail.rutaParaderos || [])
+                .slice()
+                .sort((a, b) => a.orden - b.orden)
+                .map(routeStop => ({
+                    order: routeStop.orden,
+                    name: routeStop.paradero?.nombre || `Paradero ${routeStop.orden}`,
+                    reference: routeStop.paradero?.direccionReferencia || '',
+                    originalMinute: Number(routeStop.tiempoEstimadoDesdeInicioMin ?? routeStop.TiempoEstimadoDesdeInicioMin ?? 0),
+                    point: toPoint(routeStop.paradero || {})
+                }))
+                .filter(stop => stop.point.lat && stop.point.lng);
+
+            const maxOriginalRaw = Math.max(...stops.map(stop => stop.originalMinute || 0), 0);
+            const maxOriginalMinute = maxOriginalRaw > 0 ? maxOriginalRaw : routeDurationMinutes;
+
+            if (selectedDirection === 'vuelta') {
+                controlPoints = controlPoints.reverse();
+                stops = stops.reverse().map((stop, index) => ({
+                    ...stop,
+                    order: index + 1,
+                    originalMinute: maxOriginalMinute - (stop.originalMinute || 0)
+                }));
+            }
+
+            stops = stops.map((stop, index) => ({
+                ...stop,
+                order: index + 1,
+                scheduledMinute: maxOriginalMinute > 0
+                    ? Math.round(((stop.originalMinute || 0) / maxOriginalMinute) * routeDurationMinutes)
+                    : stops.length > 1
+                        ? Math.round((index / (stops.length - 1)) * routeDurationMinutes)
+                        : 0
+            }));
+
+            routePath = controlPoints.length >= 2 ? controlPoints : stops.map(stop => stop.point);
+            if (routePath.length < 2) {
+                routePath = [
+                    { lat: -12.050105, lng: -77.045311 },
+                    { lat: -12.047970, lng: -77.043690 },
+                    { lat: -12.045640, lng: -77.041640 },
+                    { lat: -12.042860, lng: -77.039760 }
+                ];
+            }
+
+            distanceIndex = buildDistanceIndex(routePath);
+            routeStops = stops.length ? stops : routePath.map((point, index) => ({
+                order: index + 1,
+                name: index === 0 ? 'Inicio de ruta' : index === routePath.length - 1 ? 'Destino' : `Paradero ${index + 1}`,
+                reference: 'Punto de control',
+                scheduledMinute: routePath.length > 1
+                    ? Math.round((index / (routePath.length - 1)) * routeDurationMinutes)
+                    : 0,
+                point
+            }));
+
+            routeStops = routeStops.map((stop, index) => ({
+                ...stop,
+                scheduledMinute: getScheduledMinutesForStop(stop, index, routeStops.length),
+                progress: getProgressForPoint(stop.point)
+            })).sort((a, b) => a.progress - b.progress);
+        }
+
+        async function selectRoute(routeId) {
+            selectedRouteId = routeId || null;
+            if (!selectedRouteId) {
+                elements.message.textContent = 'Selecciona una ruta para iniciar la animacion.';
+                return;
+            }
+
+            elements.message.textContent = 'Cargando ruta y unidades activas...';
+            const detailResponse = await fetch(`${apiBaseUrl}dashboard/route/${selectedRouteId}/details`);
+            if (!detailResponse.ok) {
+                elements.message.textContent = 'No se pudo cargar el detalle de la ruta.';
+                return;
+            }
+
+            activeRouteDetail = await detailResponse.json();
+            routeVehicles = await fetchActiveVehicles(selectedRouteId);
+            selectedVehicle = routeVehicles[0] || {
+                placa: 'SIMCRUL-DEMO',
+                codigoInterno: 'Unidad demo',
+                velocidadKmh: 28
+            };
+
+            buildRouteData(activeRouteDetail);
+            renderStopsPanel();
+            renderRouteVisuals();
+            animationProgress = 0;
+            lastRenderedPoint = getPointAtProgress(animationProgress);
+            lastTelemetryAt = null;
+
+            const selectedRoute = getSelectedRouteSummary();
+            const profile = resolveDirectionProfile(selectedRoute, activeRouteDetail);
+            elements.routeName.textContent = selectedRoute
+                ? `${selectedRoute.codigoRuta} - ${profile.label}`
+                : activeRouteDetail.nombreRuta || 'Ruta seleccionada';
+            elements.message.textContent = `Simulacion ${selectedDirection}: ${routeDurationMinutes} min estimados segun datos configurados de ruta.`;
+            updatePanel(animationProgress);
+            renderVehicleAt(lastRenderedPoint, animationProgress);
+            startAnimation();
+        }
+
+        function wireControls() {
+            elements.select.addEventListener('change', () => selectRoute(Number(elements.select.value)));
+            elements.playPause.addEventListener('click', () => {
+                isPaused = !isPaused;
+                elements.playPause.innerHTML = isPaused
+                    ? '<i class="fa-solid fa-play"></i> Reanudar'
+                    : '<i class="fa-solid fa-pause"></i> Pausar';
+            });
+            elements.restart.addEventListener('click', () => {
+                animationProgress = 0;
+                lastFrameAt = null;
+                lastRenderedPoint = getPointAtProgress(0);
+                isPaused = false;
+                elements.playPause.innerHTML = '<i class="fa-solid fa-pause"></i> Pausar';
+            });
+            elements.directionOutbound.addEventListener('click', () => changeDirection('ida'));
+            elements.directionReturn.addEventListener('click', () => changeDirection('vuelta'));
+            elements.speedControl.addEventListener('input', () => {
+                animationSpeed = Number(elements.speedControl.value);
+                elements.speedLabel.textContent = `${animationSpeed}x`;
+            });
+            elements.zoomIn.addEventListener('click', () => {
+                freezeSimulation(1400);
+                if (useGoogleMaps && googleMap) {
+                    googleMap.setZoom((googleMap.getZoom() || 14) + 1);
+                    return;
+                }
+                leafletMap?.zoomIn();
+            });
+            elements.zoomOut.addEventListener('click', () => {
+                freezeSimulation(1400);
+                if (useGoogleMaps && googleMap) {
+                    googleMap.setZoom((googleMap.getZoom() || 14) - 1);
+                    return;
+                }
+                leafletMap?.zoomOut();
+            });
+            elements.followToggle.addEventListener('click', () => {
+                freezeSimulation(900);
+                setFollowVehicle(true);
+                const point = lastRenderedPoint || getPointAtProgress(animationProgress);
+                if (useGoogleMaps && googleMap) {
+                    suppressMapInteraction = true;
+                    googleMap.panTo(point);
+                    if ((googleMap.getZoom() || 0) < 15) {
+                        googleMap.setZoom(15);
+                    }
+                    window.setTimeout(() => suppressMapInteraction = false, 350);
+                    return;
+                }
+                leafletMap?.setView([point.lat, point.lng], Math.max(leafletMap.getZoom(), 15), { animate: true });
+            });
+            window.addEventListener('resize', () => freezeSimulation(1400));
+            document.addEventListener('fullscreenchange', () => {
+                freezeSimulation(1800);
+                if (useGoogleMaps && googleMap) {
+                    window.setTimeout(() => google.maps.event.trigger(googleMap, 'resize'), 250);
+                }
+                if (leafletMap) {
+                    window.setTimeout(() => leafletMap.invalidateSize(), 250);
+                }
+            });
+        }
+
+        async function changeDirection(direction) {
+            if (selectedDirection === direction) {
+                return;
+            }
+
+            selectedDirection = direction;
+            elements.directionOutbound.classList.toggle('is-active', direction === 'ida');
+            elements.directionReturn.classList.toggle('is-active', direction === 'vuelta');
+            elements.directionLabel.textContent = direction === 'ida' ? 'Ida' : 'Vuelta';
+
+            if (selectedRouteId) {
+                await selectRoute(selectedRouteId);
+            }
+        }
+
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl(signalrUrl)
+            .withAutomaticReconnect()
+            .build();
+
+        connection.on('SendTelemetryUpdate', (vehicle) => {
+            if (!selectedRouteId || Number(vehicle.idRuta) !== Number(selectedRouteId)) {
+                return;
+            }
+
+            const existingIndex = routeVehicles.findIndex(item => item.idVehiculo === vehicle.idVehiculo);
+            if (existingIndex >= 0) {
+                routeVehicles[existingIndex] = vehicle;
+            } else {
+                routeVehicles.push(vehicle);
+            }
+
+            selectedVehicle = routeVehicles[0];
+        });
+
+        async function bootTravelBoost() {
+            wireControls();
+            await initializeMap();
+            await fetchRoutes();
+            if (routesList.length) {
+                elements.select.value = routesList[0].idRuta;
+                await selectRoute(routesList[0].idRuta);
+            }
+
+            try {
+                await connection.start();
+            } catch (error) {
+                console.warn('SignalR no conectado todavia.', error);
+            }
+        }
+
+        bootTravelBoost().catch(error => {
+            console.error(error);
+            elements.message.textContent = error.message || 'No se pudo iniciar la vista animada.';
+        });
+    </script>
+}

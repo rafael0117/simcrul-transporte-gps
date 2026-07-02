@@ -9,7 +9,7 @@
             <span class="ops-kicker">Sistema Web Inteligente de Monitoreo y Control de Rutas</span>
             <h1>Consultar estadisticas operativas</h1>
         </div>
-        <div class="ops-contact"><i class="fa-solid fa-phone"></i> 980 793 614</div>
+        <div class="ops-contact"><i class="fa-solid fa-phone"></i> 997417461</div>
     </div>
 
     <div class="ops-filter glass-card">
@@ -31,6 +31,8 @@
             <i class="fa-solid fa-filter"></i> Filtrar
         </button>
     </div>
+
+    <div class="ops-status" id="ops-status" role="status"></div>
 
     <div class="ops-workspace">
         <aside class="ops-alerts glass-card">
@@ -172,6 +174,25 @@
         .ops-filter-button {
             border-radius: 8px;
             height: 47px;
+        }
+
+        .ops-status {
+            display: none;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(245, 158, 11, 0.28);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            color: #f8fafc;
+            background: rgba(245, 158, 11, 0.13);
+        }
+
+        .ops-status.active {
+            display: block;
+        }
+
+        .ops-status.success {
+            border-color: rgba(34, 197, 94, 0.28);
+            background: rgba(34, 197, 94, 0.11);
         }
 
         .ops-card-grid {
@@ -494,8 +515,13 @@
             weekAgo.setDate(today.getDate() - 7);
             document.getElementById('date-from').value = toIsoDate(weekAgo);
             document.getElementById('date-to').value = toIsoDate(today);
-            await loadRouteOptions();
-            await loadOperationalDashboard();
+            try {
+                await loadRouteOptions();
+                await loadOperationalDashboard();
+            } catch (error) {
+                console.error('Dashboard inicial:', error);
+                showDashboardStatus('No se pudo cargar todo el dashboard. Verifica que la API este encendida.', false);
+            }
             startOperationalAlertsRealtime();
             setInterval(loadOperationalAlerts, 30000);
         });
@@ -514,26 +540,35 @@
         }
 
         async function loadRouteOptions() {
-            const response = await fetch(`${opsApiBaseUrl}dashboard/route-options`);
-            if (!response.ok) return;
-            const routes = await response.json();
+            let routes = [];
+            try {
+                routes = await fetchJson(`${opsApiBaseUrl}dashboard/route-options`, []);
+            } catch (error) {
+                console.error('Rutas del filtro:', error);
+                showDashboardStatus('No se pudieron cargar las rutas del filtro, pero el dashboard seguira funcionando.', false);
+            }
             const select = document.getElementById('route-filter');
-            routes.forEach(route => {
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">Todas</option>';
+            toArray(routes).forEach(route => {
                 const option = document.createElement('option');
                 option.value = route.idRuta;
                 option.textContent = `${route.codigoRuta} - ${route.nombreRuta}`;
                 select.appendChild(option);
             });
+            select.value = currentValue;
         }
 
         async function loadOperationalDashboard() {
-            const response = await fetch(`${opsApiBaseUrl}dashboard/operational-summary?${queryString()}`);
-            if (!response.ok) {
-                alert('No se pudieron cargar las estadisticas operativas.');
-                return;
+            try {
+                currentSummary = normalizeSummary(await fetchJson(`${opsApiBaseUrl}dashboard/operational-summary?${queryString()}`, null));
+                hideDashboardStatus();
+            } catch (error) {
+                console.error('Resumen operativo:', error);
+                currentSummary = normalizeSummary(null);
+                showDashboardStatus('No se pudieron cargar las estadisticas operativas. Se muestran valores en cero para que la pantalla no se caiga.', false);
             }
 
-            currentSummary = await response.json();
             document.getElementById('distance-kpi').textContent = `${formatNumber(currentSummary.distanciaRecorridaKm)} km`;
             document.getElementById('time-kpi').textContent = formatDuration(currentSummary.tiempoOperativoMin);
             document.getElementById('speed-kpi').textContent = currentSummary.excesosVelocidad;
@@ -542,19 +577,24 @@
             document.getElementById('summary-text').textContent =
                 `${currentSummary.topEmpresa} lidera la distancia recorrida con el vehiculo ${currentSummary.topVehiculo} en ${currentSummary.topRuta}, acumulando ${formatNumber(currentSummary.topDistanciaKm)} km.`;
 
-            renderBars('speed-chart', completeDailyPoints(currentSummary.excesosPorDia || []), 'Sin excesos de velocidad');
-            renderBars('hour-chart', currentSummary.unidadesPorHora || [], 'Sin unidades activas');
+            renderBars('speed-chart', completeDailyPoints(toArray(currentSummary.excesosPorDia)), 'Sin excesos de velocidad');
+            renderBars('hour-chart', toArray(currentSummary.unidadesPorHora), 'Sin unidades activas');
             await loadOperationalAlerts();
         }
 
         async function loadOperationalAlerts() {
-            const response = await fetch(`${opsApiBaseUrl}dashboard/operational-alerts?${queryString()}`);
-            if (!response.ok) return;
-            const alerts = await response.json();
-            renderOperationalAlerts(alerts);
+            try {
+                const alerts = await fetchJson(`${opsApiBaseUrl}dashboard/operational-alerts?${queryString()}`, []);
+                renderOperationalAlerts(toArray(alerts));
+            } catch (error) {
+                console.error('Alertas operativas:', error);
+                renderOperationalAlerts([]);
+                showDashboardStatus('No se pudieron actualizar las alertas. Revisa la conexion con la API.', false);
+            }
         }
 
         function renderOperationalAlerts(alerts) {
+            alerts = toArray(alerts);
             const feed = document.getElementById('alerts-feed');
             document.getElementById('alerts-count').textContent = alerts.length;
             if (!alerts.length) {
@@ -630,13 +670,15 @@
                 return;
             }
 
-            const response = await fetch(`${opsApiBaseUrl}dashboard/operational-detail/${type}?${queryString()}`);
-            if (!response.ok) {
-                alert('No se pudo cargar la bitacora.');
+            let rows = [];
+            try {
+                rows = toArray(await fetchJson(`${opsApiBaseUrl}dashboard/operational-detail/${type}?${queryString()}`, []));
+            } catch (error) {
+                console.error('Detalle operativo:', error);
+                showDashboardStatus('No se pudo cargar la bitacora del indicador.', false);
                 return;
             }
 
-            const rows = await response.json();
             document.getElementById('detail-title').textContent = metricTitles[type];
             document.getElementById('detail-kicker').textContent = type === 'desvio' ? 'Bitacora de desvios por fecha' : 'Detalle por fecha';
             document.getElementById('detail-highlight').textContent = buildHighlight(type, rows);
@@ -661,13 +703,14 @@
         }
 
         function buildHighlight(type, rows) {
+            rows = toArray(rows);
             if (!rows.length) return 'No hay registros para el rango consultado.';
             if (type === 'distancia') {
-                const top = [...rows].sort((a, b) => b.distanciaKm - a.distanciaKm)[0];
-                return `${top.empresa} / ${top.placa} hizo la mayor distancia del filtro: ${formatNumber(top.distanciaKm)} km en ${top.ruta}.`;
+                const top = [...rows].sort((a, b) => Number(b.distanciaKm || 0) - Number(a.distanciaKm || 0))[0];
+                return `${top.empresa || 'Sin empresa'} / ${top.placa || 'Sin placa'} hizo la mayor distancia del filtro: ${formatNumber(top.distanciaKm)} km en ${top.ruta || 'sin ruta'}.`;
             }
             if (type === 'tiempo') {
-                const totalMinutes = rows.reduce((sum, row) => sum + row.tiempoOperativoMin, 0);
+                const totalMinutes = rows.reduce((sum, row) => sum + Number(row.tiempoOperativoMin || 0), 0);
                 return `Bitacora operativa: ${rows.length} recorridos acumulan ${formatDuration(totalMinutes)} de circulacion.`;
             }
             if (type === 'velocidad') {
@@ -677,16 +720,19 @@
         }
 
         function detailRow(type, row) {
-            let value = `${row.eventos} evento(s)`;
+            let value = `${Number(row.eventos || 0)} evento(s)`;
             if (type === 'distancia') value = `${formatNumber(row.distanciaKm)} km`;
             if (type === 'tiempo') value = formatDuration(row.tiempoOperativoMin);
             if (type === 'velocidad') value = `${formatNumber(row.valorMaximo || 0)} km/h`;
 
+            const date = new Date(row.fecha);
+            const dateText = Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('es-PE');
+
             return `<tr>
-                <td>${new Date(row.fecha).toLocaleDateString('es-PE')}</td>
-                <td>${escapeHtml(row.empresa)}</td>
-                <td><strong>${escapeHtml(row.placa)}</strong><br><span style="color:var(--text-secondary)">${escapeHtml(row.codigoVehiculo)}</span></td>
-                <td>${escapeHtml(row.ruta)}</td>
+                <td>${dateText}</td>
+                <td>${escapeHtml(row.empresa || 'Sin empresa')}</td>
+                <td><strong>${escapeHtml(row.placa || 'Sin placa')}</strong><br><span style="color:var(--text-secondary)">${escapeHtml(row.codigoVehiculo || '-')}</span></td>
+                <td>${escapeHtml(row.ruta || 'Sin ruta')}</td>
                 <td><strong>${value}</strong><br><span style="color:var(--text-secondary)">${escapeHtml(row.descripcion || '')}</span></td>
                 <td>${escapeHtml(row.estado || '')}</td>
             </tr>`;
@@ -694,6 +740,10 @@
 
         function renderBars(containerId, points, emptyText) {
             const container = document.getElementById(containerId);
+            points = toArray(points).map(point => ({
+                label: point.label || '-',
+                value: Number(point.value || 0)
+            }));
             if (!points.length) {
                 container.innerHTML = `<div class="ops-bar-empty-note">${emptyText}</div>`;
                 return;
@@ -713,6 +763,7 @@
         }
 
         function completeDailyPoints(points) {
+            points = toArray(points);
             const fromInput = document.getElementById('date-from').value;
             const toInput = document.getElementById('date-to').value;
             if (!fromInput || !toInput) return points;
@@ -765,6 +816,55 @@
                 .replaceAll('>', '&gt;')
                 .replaceAll('"', '&quot;')
                 .replaceAll("'", '&#039;');
+        }
+
+        async function fetchJson(url, fallbackValue) {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const text = await response.text();
+            if (!text) return fallbackValue;
+
+            try {
+                return JSON.parse(text);
+            } catch {
+                return fallbackValue;
+            }
+        }
+
+        function toArray(value) {
+            return Array.isArray(value) ? value : [];
+        }
+
+        function normalizeSummary(summary) {
+            return {
+                distanciaRecorridaKm: Number(summary?.distanciaRecorridaKm || 0),
+                tiempoOperativoMin: Number(summary?.tiempoOperativoMin || 0),
+                excesosVelocidad: Number(summary?.excesosVelocidad || 0),
+                desviosRuta: Number(summary?.desviosRuta || 0),
+                reclamosRecibidos: Number(summary?.reclamosRecibidos || 0),
+                topEmpresa: summary?.topEmpresa || 'Sin empresa',
+                topVehiculo: summary?.topVehiculo || 'sin unidad',
+                topRuta: summary?.topRuta || 'sin ruta',
+                topDistanciaKm: Number(summary?.topDistanciaKm || 0),
+                excesosPorDia: toArray(summary?.excesosPorDia),
+                unidadesPorHora: toArray(summary?.unidadesPorHora)
+            };
+        }
+
+        function showDashboardStatus(message, success) {
+            const status = document.getElementById('ops-status');
+            status.textContent = message;
+            status.classList.toggle('success', Boolean(success));
+            status.classList.add('active');
+        }
+
+        function hideDashboardStatus() {
+            const status = document.getElementById('ops-status');
+            status.classList.remove('active', 'success');
+            status.textContent = '';
         }
     </script>
 }

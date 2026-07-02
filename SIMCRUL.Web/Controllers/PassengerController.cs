@@ -24,6 +24,12 @@ public class PassengerController : Controller
     }
 
     [HttpGet]
+    public IActionResult TravelBoost()
+    {
+        return View();
+    }
+
+    [HttpGet]
     public IActionResult Login(string? returnUrl = null)
     {
         if (SessionAuthHelper.IsPassengerAuthenticated(HttpContext.Session))
