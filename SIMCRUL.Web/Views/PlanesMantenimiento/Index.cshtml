@@ -1,0 +1,29 @@
+@model List<SIMCRUL.Common.DTOs.Maintenance.PreventivePlanDto>
+@{
+    ViewData["Title"] = "Planes preventivos";
+}
+
+<section class="page-actions">
+    <a asp-action="Crear" class="btn btn-primary">Nuevo plan preventivo</a>
+</section>
+
+<section class="table-card">
+    <table>
+        <thead>
+            <tr><th>Vehiculo</th><th>Fecha programada</th><th>Frecuencia</th><th>Prioridad</th><th>Estado</th><th>Actividades</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.NombreVehiculo</td>
+                <td>@item.ProximaFechaProgramada.ToString("dd/MM/yyyy")</td>
+                <td>@item.FrecuenciaDias dias / @(item.FrecuenciaKilometros?.ToString("N0") ?? "-") km</td>
+                <td>@item.Prioridad</td>
+                <td>@item.Estado</td>
+                <td>@item.Actividades</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>

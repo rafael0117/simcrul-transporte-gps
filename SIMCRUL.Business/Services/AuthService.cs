@@ -91,10 +91,7 @@ public class AuthService : IAuthService
         _context.Usuarios.Add(usuario);
         await _context.SaveChangesAsync(cancellationToken);
 
-        if (string.Equals(rol.Nombre, "Pasajero", StringComparison.OrdinalIgnoreCase))
-        {
-            await TrySendWelcomeEmailAsync(usuario, cancellationToken);
-        }
+        await TrySendWelcomeEmailAsync(usuario, cancellationToken);
 
         return GenerateAuthResponse(usuario);
     }

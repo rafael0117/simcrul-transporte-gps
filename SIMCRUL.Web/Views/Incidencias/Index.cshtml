@@ -1,0 +1,51 @@
+@model List<SIMCRUL.Common.DTOs.Maintenance.IncidentDto>
+@using SIMCRUL.Web.Infrastructure
+@{
+    ViewData["Title"] = "Incidencias";
+}
+
+<section class="page-actions">
+    @if (SessionAuthHelper.IsDriverAuthenticated(Context.Session))
+    {
+        <a asp-action="Crear" class="btn btn-primary">Nueva incidencia</a>
+    }
+</section>
+
+<section class="table-card">
+    <table>
+        <thead>
+            <tr><th>Fecha</th><th>Vehiculo</th><th>Titulo</th><th>Tipo</th><th>Severidad</th><th>Estado</th><th>Reportado por</th><th></th></tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.FechaReporte.ToString("dd/MM/yyyy HH:mm")</td>
+                <td>@item.NombreVehiculo</td>
+                <td>@item.Titulo</td>
+                <td>@item.TipoIncidencia</td>
+                <td><span class="chip @(item.Severidad is "ALTA" or "CRITICA" ? "danger" : "warn")">@item.Severidad</span></td>
+                <td>@item.Estado</td>
+                <td>@item.NombreReportadoPor</td>
+                <td>
+                    @if (SessionAuthHelper.IsChiefAuthenticated(Context.Session) || SessionAuthHelper.IsTechnicianAuthenticated(Context.Session) || SessionAuthHelper.IsAdminAuthenticated(Context.Session))
+                    {
+                        <div class="inline-actions">
+                            <form asp-action="ActualizarEstado" method="post">
+                                <input type="hidden" name="id" value="@item.IdIncidenciaMantenimiento" />
+                                <input type="hidden" name="estado" value="EN_REPARACION" />
+                                <button type="submit" class="btn btn-light">En reparacion</button>
+                            </form>
+                            <form asp-action="ActualizarEstado" method="post">
+                                <input type="hidden" name="id" value="@item.IdIncidenciaMantenimiento" />
+                                <input type="hidden" name="estado" value="CERRADA" />
+                                <button type="submit" class="btn btn-secondary">Cerrar</button>
+                            </form>
+                        </div>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>

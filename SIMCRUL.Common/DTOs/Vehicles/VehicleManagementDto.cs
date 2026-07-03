@@ -9,10 +9,10 @@ public class VehicleManagementDto
     [Required(ErrorMessage = "La placa es obligatoria.")]
     public string Placa { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "El código interno es obligatorio.")]
+    [Required(ErrorMessage = "El codigo interno es obligatorio.")]
     public string CodigoInterno { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "El tipo de vehículo es obligatorio.")]
+    [Required(ErrorMessage = "El tipo de vehiculo es obligatorio.")]
     public string TipoVehiculo { get; set; } = string.Empty;
 
     public string? Marca { get; set; }
@@ -22,22 +22,17 @@ public class VehicleManagementDto
     [Range(1, int.MaxValue, ErrorMessage = "La capacidad debe ser mayor que cero.")]
     public int CapacidadPasajeros { get; set; }
 
-    [Range(1, double.MaxValue, ErrorMessage = "La velocidad máxima debe ser mayor que cero.")]
+    [Range(1, double.MaxValue, ErrorMessage = "La velocidad maxima debe ser mayor que cero.")]
     public decimal VelocidadMaximaKmh { get; set; }
 
+    [Range(0, double.MaxValue, ErrorMessage = "El kilometraje no puede ser negativo.")]
+    public decimal KilometrajeActual { get; set; }
+
+    [Required(ErrorMessage = "El estado operativo es obligatorio.")]
+    public string EstadoOperativo { get; set; } = "OPERATIVO";
+
+    public DateTime? FechaUltimaInspeccion { get; set; }
+    public DateTime? FechaUltimoMantenimiento { get; set; }
+    public string? ObservacionesMantenimiento { get; set; }
     public bool Estado { get; set; } = true;
-
-    public int? IdDispositivoGps { get; set; }
-    public string? Imei { get; set; }
-    public string? NumeroSerie { get; set; }
-    public string? Proveedor { get; set; }
-    public bool GpsActivo { get; set; }
-
-    public int? IdAsignacionActiva { get; set; }
-    public int? IdRuta { get; set; }
-    public string? CodigoRuta { get; set; }
-    public string? NombreRuta { get; set; }
-    public int? IdConductor { get; set; }
-    public string? NombreConductor { get; set; }
-    public string? EstadoAsignacion { get; set; }
 }

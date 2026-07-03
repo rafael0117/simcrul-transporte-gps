@@ -1,5 +1,5 @@
-using SIMCRUL.Common.Constants;
 using Microsoft.AspNetCore.Http;
+using SIMCRUL.Common.Constants;
 
 namespace SIMCRUL.Web.Infrastructure;
 
@@ -10,33 +10,45 @@ public static class SessionAuthHelper
         return !string.IsNullOrWhiteSpace(session.GetString("Token"));
     }
 
-    public static bool IsPassengerAuthenticated(ISession session)
+    public static string GetRole(ISession session)
+    {
+        return session.GetString("Rol") ?? string.Empty;
+    }
+
+    public static bool IsAdminAuthenticated(ISession session)
     {
         return IsAuthenticated(session) &&
-               string.Equals(session.GetString("Rol"), Roles.Pasajero, StringComparison.OrdinalIgnoreCase);
+               string.Equals(GetRole(session), Roles.Administrador, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool IsChiefAuthenticated(ISession session)
+    {
+        return IsAuthenticated(session) &&
+               string.Equals(GetRole(session), Roles.JefeMantenimiento, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool IsTechnicianAuthenticated(ISession session)
+    {
+        return IsAuthenticated(session) &&
+               string.Equals(GetRole(session), Roles.TecnicoMantenimiento, StringComparison.OrdinalIgnoreCase);
     }
 
     public static bool IsDriverAuthenticated(ISession session)
     {
         return IsAuthenticated(session) &&
-               string.Equals(session.GetString("Rol"), Roles.Conductor, StringComparison.OrdinalIgnoreCase);
+               string.Equals(GetRole(session), Roles.Conductor, StringComparison.OrdinalIgnoreCase);
     }
 
     public static bool IsBackofficeAuthenticated(ISession session)
     {
-        if (!IsAuthenticated(session))
-        {
-            return false;
-        }
-
-        var role = session.GetString("Rol");
-        return string.Equals(role, Roles.Administrador, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(role, Roles.Supervisor, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(role, Roles.Operador, StringComparison.OrdinalIgnoreCase);
+        return IsAdminAuthenticated(session) ||
+               IsChiefAuthenticated(session) ||
+               IsTechnicianAuthenticated(session);
     }
 
-    public static bool IsOperatorAuthenticated(ISession session)
-    {
-        return IsBackofficeAuthenticated(session);
-    }
+    public static bool CanManageVehicles(ISession session) => IsAdminAuthenticated(session);
+    public static bool CanManagePlans(ISession session) => IsChiefAuthenticated(session);
+    public static bool CanViewHistory(ISession session) => IsAdminAuthenticated(session) || IsChiefAuthenticated(session);
+    public static bool CanViewStats(ISession session) => IsAdminAuthenticated(session) || IsChiefAuthenticated(session);
+    public static bool CanExecuteOrders(ISession session) => IsTechnicianAuthenticated(session) || IsAdminAuthenticated(session);
 }

@@ -1,0 +1,39 @@
+@model SIMCRUL.Common.DTOs.Vehicles.VehicleManagementDto
+@{
+    ViewData["Title"] = "Registrar vehiculo";
+}
+
+<form asp-action="Crear" method="post" class="form-card stack">
+    <div asp-validation-summary="ModelOnly"></div>
+    <div class="form-grid">
+        <div class="form-field"><label asp-for="Placa"></label><input asp-for="Placa" /><span asp-validation-for="Placa"></span></div>
+        <div class="form-field"><label asp-for="CodigoInterno"></label><input asp-for="CodigoInterno" /><span asp-validation-for="CodigoInterno"></span></div>
+        <div class="form-field"><label asp-for="TipoVehiculo"></label><input asp-for="TipoVehiculo" /><span asp-validation-for="TipoVehiculo"></span></div>
+        <div class="form-field"><label asp-for="Marca"></label><input asp-for="Marca" /></div>
+        <div class="form-field"><label asp-for="Modelo"></label><input asp-for="Modelo" /></div>
+        <div class="form-field"><label asp-for="Anio"></label><input asp-for="Anio" type="number" /></div>
+        <div class="form-field"><label asp-for="CapacidadPasajeros"></label><input asp-for="CapacidadPasajeros" type="number" /></div>
+        <div class="form-field"><label asp-for="VelocidadMaximaKmh"></label><input asp-for="VelocidadMaximaKmh" type="number" step="0.01" /></div>
+        <div class="form-field"><label asp-for="KilometrajeActual"></label><input asp-for="KilometrajeActual" type="number" step="0.01" /></div>
+        <div class="form-field">
+            <label asp-for="EstadoOperativo"></label>
+            <select asp-for="EstadoOperativo">
+                <option>OPERATIVO</option>
+                <option>EN_MANTENIMIENTO</option>
+                <option>FUERA_DE_SERVICIO</option>
+            </select>
+        </div>
+        <div class="form-field"><label asp-for="FechaUltimaInspeccion"></label><input asp-for="FechaUltimaInspeccion" type="datetime-local" /></div>
+        <div class="form-field"><label asp-for="FechaUltimoMantenimiento"></label><input asp-for="FechaUltimoMantenimiento" type="datetime-local" /></div>
+    </div>
+    <div class="form-field">
+        <label asp-for="ObservacionesMantenimiento"></label>
+        <textarea asp-for="ObservacionesMantenimiento"></textarea>
+    </div>
+    <div class="page-actions">
+        <button type="submit">Guardar vehiculo</button>
+        <a asp-action="Index" class="btn btn-light">Cancelar</a>
+    </div>
+</form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

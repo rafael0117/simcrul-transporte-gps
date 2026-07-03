@@ -1,0 +1,52 @@
+@model SIMCRUL.Common.DTOs.Maintenance.InspectionDto
+@{
+    ViewData["Title"] = "Registrar inspeccion";
+    var vehicles = ViewBag.Vehicles as List<SIMCRUL.Common.DTOs.Maintenance.VehicleOptionDto> ?? [];
+}
+
+<form asp-action="Crear" method="post" class="form-card stack">
+    <div asp-validation-summary="ModelOnly"></div>
+    <div class="form-grid">
+        <div class="form-field">
+            <label asp-for="IdVehiculo"></label>
+            <select asp-for="IdVehiculo">
+                <option value="">Seleccione</option>
+                @foreach (var item in vehicles)
+                {
+                    <option value="@item.IdVehiculo">@item.Etiqueta</option>
+                }
+            </select>
+            <span asp-validation-for="IdVehiculo"></span>
+        </div>
+        <div class="form-field"><label asp-for="FechaInspeccion"></label><input asp-for="FechaInspeccion" type="datetime-local" /></div>
+        <div class="form-field"><label asp-for="Kilometraje"></label><input asp-for="Kilometraje" type="number" step="0.01" /></div>
+        <div class="form-field">
+            <label asp-for="NivelCombustible"></label>
+            <select asp-for="NivelCombustible">
+                <option>ALTO</option><option>MEDIO</option><option>BAJO</option>
+            </select>
+        </div>
+    </div>
+    <div class="checkbox-grid">
+        <label class="checkbox-card"><input asp-for="LimpiezaCabina" /> Limpieza de cabina</label>
+        <label class="checkbox-card"><input asp-for="LimpiezaExterior" /> Limpieza exterior</label>
+        <label class="checkbox-card"><input asp-for="LucesOperativas" /> Luces operativas</label>
+        <label class="checkbox-card"><input asp-for="FrenosOperativos" /> Frenos operativos</label>
+        <label class="checkbox-card"><input asp-for="NeumaticosOperativos" /> Neumaticos operativos</label>
+        <label class="checkbox-card"><input asp-for="BocinaOperativa" /> Bocina operativa</label>
+        <label class="checkbox-card"><input asp-for="EspejosOperativos" /> Espejos operativos</label>
+        <label class="checkbox-card"><input asp-for="BotiquinDisponible" /> Botiquin disponible</label>
+        <label class="checkbox-card"><input asp-for="ExtintorDisponible" /> Extintor disponible</label>
+        <label class="checkbox-card"><input asp-for="DocumentosCompletos" /> Documentos completos</label>
+    </div>
+    <div class="form-field">
+        <label asp-for="Observaciones"></label>
+        <textarea asp-for="Observaciones"></textarea>
+    </div>
+    <div class="page-actions">
+        <button type="submit">Registrar inspeccion</button>
+        <a asp-action="Index" class="btn btn-light">Volver</a>
+    </div>
+</form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

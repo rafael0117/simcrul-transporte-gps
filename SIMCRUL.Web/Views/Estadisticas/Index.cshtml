@@ -1,0 +1,38 @@
+@model SIMCRUL.Common.DTOs.Maintenance.MaintenanceDashboardDto
+@{
+    ViewData["Title"] = "Estadisticas";
+}
+
+<section class="page-actions">
+    <a asp-action="Exportar" class="btn btn-primary">Exportar CSV</a>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card"><span>Vehiculos operativos</span><strong>@Model.VehiculosOperativos</strong></article>
+    <article class="stat-card"><span>En mantenimiento</span><strong>@Model.VehiculosEnMantenimiento</strong></article>
+    <article class="stat-card"><span>Fuera de servicio</span><strong>@Model.VehiculosFueraDeServicio</strong></article>
+    <article class="stat-card"><span>Incidencias abiertas</span><strong>@Model.IncidenciasAbiertas</strong></article>
+    <article class="stat-card"><span>Ordenes pendientes</span><strong>@Model.OrdenesPendientes</strong></article>
+    <article class="stat-card"><span>Ordenes cerradas este mes</span><strong>@Model.OrdenesFinalizadasMes</strong></article>
+</section>
+
+<section class="content-grid">
+    <div class="table-card">
+        <h3>Distribucion de incidencias</h3>
+        <div class="mini-list">
+            @foreach (var item in Model.IncidenciasPorTipo)
+            {
+                <div class="mini-item"><div>@item.Label</div><strong>@item.Value</strong></div>
+            }
+        </div>
+    </div>
+    <div class="table-card">
+        <h3>Estado de ordenes</h3>
+        <div class="mini-list">
+            @foreach (var item in Model.OrdenesPorEstado)
+            {
+                <div class="mini-item"><div>@item.Label</div><strong>@item.Value</strong></div>
+            }
+        </div>
+    </div>
+</section>

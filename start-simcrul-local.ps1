@@ -13,5 +13,4 @@ Start-Process dotnet -ArgumentList "run --no-build" -WorkingDirectory $webProjec
 Write-Host ""
 Write-Host "Abre estas rutas en tu navegador:"
 Write-Host "  API Swagger: http://localhost:5272/swagger"
-Write-Host "  Google Maps demo: http://localhost:5171/google-routes.html"
-Write-Host "  Web MVC actual: http://localhost:5171/"
+Write-Host "  Web MVC: http://localhost:5171/"

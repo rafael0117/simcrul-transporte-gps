@@ -1,0 +1,29 @@
+@model SIMCRUL.Common.DTOs.Maintenance.WorkOrderAssignmentDto
+@{
+    ViewData["Title"] = "Asignar tecnico";
+    var technicians = ViewBag.Technicians as List<SIMCRUL.Common.DTOs.Maintenance.UserOptionDto> ?? [];
+}
+
+<form asp-action="Asignar" asp-route-id="@ViewBag.OrderId" method="post" class="form-card stack">
+    <div asp-validation-summary="ModelOnly"></div>
+    <div class="form-grid">
+        <div class="form-field">
+            <label asp-for="IdTecnicoUsuario"></label>
+            <select asp-for="IdTecnicoUsuario">
+                <option value="">Seleccione</option>
+                @foreach (var item in technicians)
+                {
+                    <option value="@item.IdUsuario">@item.NombreCompleto</option>
+                }
+            </select>
+        </div>
+        <div class="form-field"><label asp-for="FechaProgramada"></label><input asp-for="FechaProgramada" type="datetime-local" /></div>
+    </div>
+    <div class="form-field"><label asp-for="Observaciones"></label><textarea asp-for="Observaciones"></textarea></div>
+    <div class="page-actions">
+        <button type="submit">Asignar tecnico</button>
+        <a asp-action="Index" class="btn btn-light">Volver</a>
+    </div>
+</form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

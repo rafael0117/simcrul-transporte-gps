@@ -1,0 +1,26 @@
+@model List<SIMCRUL.Common.DTOs.Maintenance.MaintenanceHistoryItemDto>
+@{
+    ViewData["Title"] = "Historial";
+}
+
+<section class="table-card">
+    <table>
+        <thead>
+            <tr><th>Tipo</th><th>Referencia</th><th>Vehiculo</th><th>Fecha</th><th>Estado</th><th>Responsable</th><th>Resumen</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.TipoRegistro</td>
+                <td>@item.CodigoReferencia</td>
+                <td>@item.Vehiculo</td>
+                <td>@item.Fecha.ToString("dd/MM/yyyy HH:mm")</td>
+                <td>@item.Estado</td>
+                <td>@item.Responsable</td>
+                <td>@item.Resumen</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>

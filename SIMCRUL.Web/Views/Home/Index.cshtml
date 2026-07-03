@@ -1,52 +1,47 @@
 @{
-    ViewData["Title"] = "Plataforma de Monitoreo GPS";
+    ViewData["Title"] = "Bienvenido";
+    ViewData["HideChrome"] = true;
 }
 
-<div class="hero-section">
-    <div class="hero-content">
-        <span class="hero-badge"><i class="fa-solid fa-microchip"></i> Inteligencia & Geocalizacion</span>
-        <h1 class="hero-title">Monitoreo Inteligente de Rutas en Tiempo Real</h1>
-        <p class="hero-description">
-            Plataforma digital avanzada para el control de combis, custers y buses urbanos.
-            Optimice la velocidad, detecte desvios instantaneos, reduzca la informalidad y garantice
-            la seguridad del pasajero con tecnologia GPS y telemetria de vanguardia.
-        </p>
-        <div class="hero-actions">
-            <a asp-controller="Passenger" asp-action="Index" class="btn-primary" style="font-size: 1.1rem; padding: 0.8rem 2rem;">
-                <i class="fa-solid fa-magnifying-glass-location"></i> Consultar Rutas
-            </a>
-            <a asp-controller="Passenger" asp-action="Register" class="btn-primary" style="font-size: 1.1rem; padding: 0.8rem 2rem; background: var(--secondary);">
-                <i class="fa-solid fa-user-plus"></i> Registro de Pasajero
-            </a>
-            <a asp-controller="Home" asp-action="Login" class="nav-links" style="color: var(--primary); font-weight: 600; text-decoration: underline;">
-                Ingresar <i class="fa-solid fa-arrow-right-to-bracket"></i>
-            </a>
+<section class="auth-wrap">
+    <div class="auth-card panel">
+        <div class="auth-side">
+            <span class="chip">SIMCRUL 2026</span>
+            <h2>Gestion integral del mantenimiento de flota</h2>
+            <p>Controla inspecciones diarias, incidencias, mantenimiento preventivo, ordenes de trabajo, repuestos e historial en una sola plataforma.</p>
+            <div class="mini-list">
+                <div class="mini-item">
+                    <div>
+                        <strong>Administrador de Flota</strong>
+                        <small>Mantiene buses, consulta historial y estadisticas.</small>
+                    </div>
+                </div>
+                <div class="mini-item">
+                    <div>
+                        <strong>Jefe de Mantenimiento</strong>
+                        <small>Programa preventivos, genera ordenes y asigna tecnicos.</small>
+                    </div>
+                </div>
+                <div class="mini-item">
+                    <div>
+                        <strong>Tecnico y Conductor</strong>
+                        <small>Ejecutan mantenimiento, registran repuestos, inspecciones e incidencias.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="auth-form">
+            <h1 style="margin-top:0;">Acceso al sistema</h1>
+            <p style="color:var(--muted);">Ingresa para continuar con la gestion operativa del mantenimiento.</p>
+            <div class="stat-strip">
+                <div><strong>14</strong><span>casos de uso alineados</span></div>
+                <div><strong>4</strong><span>actores operativos</span></div>
+                <div><strong>1</strong><span>panel central</span></div>
+            </div>
+            <div class="page-actions" style="margin-top:1.5rem;">
+                <a asp-controller="Home" asp-action="Login" class="btn btn-primary">Iniciar sesion</a>
+                <a asp-controller="Cuenta" asp-action="OlvidoContrasena" class="btn btn-light">Recuperar contrasena</a>
+            </div>
         </div>
     </div>
-    <div class="hero-image-container">
-        <img class="hero-image" src="https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?q=80&w=600&auto=format&fit=crop" alt="Dashboard SIMCRUL" />
-    </div>
-</div>
-
-<div class="kpi-grid" style="max-width: 1400px; margin: 2rem auto; padding: 0 2rem;">
-    <div class="glass-card kpi-card" style="padding: 2rem;">
-        <i class="fa-solid fa-bolt" style="font-size: 2rem; color: var(--primary); margin-bottom: 1rem;"></i>
-        <h3 style="margin-bottom: 0.5rem;">Calculo de Desvios</h3>
-        <p style="color: var(--text-secondary); font-size: 0.9rem;">Geofencing dinamico contra polilineas de ruta oficiales en segundos.</p>
-    </div>
-    <div class="glass-card kpi-card" style="padding: 2rem;">
-        <i class="fa-solid fa-gauge" style="font-size: 2rem; color: var(--warning); margin-bottom: 1rem;"></i>
-        <h3 style="margin-bottom: 0.5rem;">Control de Velocidad</h3>
-        <p style="color: var(--text-secondary); font-size: 0.9rem;">Alertas instantaneas cuando se superan los limites configurados por tramo.</p>
-    </div>
-    <div class="glass-card kpi-card" style="padding: 2rem;">
-        <i class="fa-solid fa-chart-line" style="font-size: 2rem; color: var(--success); margin-bottom: 1rem;"></i>
-        <h3 style="margin-bottom: 0.5rem;">Score de Conduccion</h3>
-        <p style="color: var(--text-secondary); font-size: 0.9rem;">Algoritmo de puntos ponderados para calificar el desempeno del conductor.</p>
-    </div>
-    <div class="glass-card kpi-card" style="padding: 2rem;">
-        <i class="fa-solid fa-file-invoice-dollar" style="font-size: 2rem; color: var(--secondary); margin-bottom: 1rem;"></i>
-        <h3 style="margin-bottom: 0.5rem;">Reportes Profesionales</h3>
-        <p style="color: var(--text-secondary); font-size: 0.9rem;">Descarga de reportes ejecutivos en PDF (QuestPDF) y hojas de calculo en Excel (ClosedXML).</p>
-    </div>
-</div>
+</section>

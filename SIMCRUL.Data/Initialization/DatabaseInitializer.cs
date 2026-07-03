@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SIMCRUL.Common.Constants;
 using SIMCRUL.Data.Context;
 using SIMCRUL.Entity;
 using System.Security.Cryptography;
@@ -10,211 +11,59 @@ public static class DatabaseInitializer
 {
     public static async Task SeedAsync(ApplicationDbContext context)
     {
-        // Ensure the database and schema are created
         await context.Database.EnsureCreatedAsync();
-        await EnsureCompatibilitySchemaAsync(context);
-        await EnsureOperationalDashboardProceduresAsync(context);
-        await EnsureElChinoRouteAsync(context);
+        await EnsurePasswordRecoverySchemaAsync(context);
+        await EnsureMaintenanceSchemaAsync(context);
 
-        // 1. Seed Roles
-        var requiredRoles = new[] { "Administrador", "Supervisor", "Operador", "Conductor", "Pasajero" };
-        foreach (var roleName in requiredRoles)
-        {
-            var exists = await context.Roles.AnyAsync(r => r.Nombre == roleName);
-            if (!exists)
-            {
-                context.Roles.Add(new Rol
-                {
-                    Nombre = roleName,
-                    Descripcion = $"Rol de {roleName} para control de accesos",
-                    Activo = true,
-                    FechaCreacion = DateTime.UtcNow
-                });
-            }
-        }
-        await context.SaveChangesAsync();
+        var company = await EnsureCompanyAsync(context);
+        await EnsureRolesAsync(context);
 
-        // 2. Seed Default Admin User if none exists
-        var adminRole = await context.Roles.FirstAsync(r => r.Nombre == "Administrador");
-        var hasAdmin = await context.Usuarios.AnyAsync(u => u.IdRol == adminRole.IdRol);
-        if (!hasAdmin)
-        {
-            var adminUser = new Usuario
-            {
-                Username = "admin",
-                Email = "admin@simcrul.com",
-                Nombres = "Administrador",
-                Apellidos = "Principal",
-                Telefono = "999999999",
-                PasswordHash = ComputeHash("admin123456"),
-                IdRol = adminRole.IdRol,
-                Activo = true,
-                FechaCreacion = DateTime.UtcNow
-            };
-            context.Usuarios.Add(adminUser);
-            await context.SaveChangesAsync();
-        }
+        var admin = await EnsureUserAsync(
+            context,
+            "admin.flota",
+            "admin.flota@simcrul.local",
+            "Administrador",
+            "Flota",
+            "999111111",
+            Roles.Administrador,
+            "Admin123!");
 
-        var conductorRole = await context.Roles.FirstAsync(r => r.Nombre == "Conductor");
-        var hasDriverUser = await context.Usuarios.AnyAsync(u => u.IdRol == conductorRole.IdRol);
-        if (!hasDriverUser)
-        {
-            context.Usuarios.Add(new Usuario
-            {
-                Username = "conductor.demo",
-                Email = "conductor@simcrul.com",
-                Nombres = "Conductor",
-                Apellidos = "Demo",
-                Telefono = "900000001",
-                PasswordHash = ComputeHash("conductor123"),
-                IdRol = conductorRole.IdRol,
-                Activo = true,
-                FechaCreacion = DateTime.UtcNow
-            });
+        var chief = await EnsureUserAsync(
+            context,
+            "jefe.mantenimiento",
+            "jefe.mantenimiento@simcrul.local",
+            "Javier",
+            "Rojas",
+            "999222222",
+            Roles.JefeMantenimiento,
+            "Jefe123!");
 
-            await context.SaveChangesAsync();
-        }
+        var technician = await EnsureUserAsync(
+            context,
+            "tecnico.mantenimiento",
+            "tecnico.mantenimiento@simcrul.local",
+            "Lucia",
+            "Quispe",
+            "999333333",
+            Roles.TecnicoMantenimiento,
+            "Tecnico123!");
 
-        // 3. Seed Demo Transport Company
-        var hasCompany = await context.EmpresasTransporte.AnyAsync();
-        if (!hasCompany)
-        {
-            var company = new EmpresaTransporte
-            {
-                Ruc = "20123456789",
-                RazonSocial = "Consorcio de Transportes Lima Sur S.A.",
-                NombreComercial = "El Rápido Express",
-                Direccion = "Av. Alfredo Mendiola 1420, Los Olivos",
-                Telefono = "01-5334455",
-                Email = "contacto@elrapido.com",
-                Estado = true,
-                FechaRegistro = DateTime.UtcNow
-            };
-            context.EmpresasTransporte.Add(company);
-            await context.SaveChangesAsync();
+        var driver = await EnsureUserAsync(
+            context,
+            "conductor.bus01",
+            "conductor.bus01@simcrul.local",
+            "Carlos",
+            "Mendoza",
+            "999444444",
+            Roles.Conductor,
+            "Conductor123!");
 
-            // 4. Seed Demo Route
-            var route = new Ruta
-            {
-                IdEmpresa = company.IdEmpresa,
-                CodigoRuta = "R01",
-                NombreRuta = "Línea Metropolitana Sur-Norte (SJL - Chorrillos)",
-                Origen = "San Juan de Lurigancho",
-                Destino = "Chorrillos",
-                DistanciaKm = 22.5M,
-                TiempoEstimadoMin = 75,
-                VelocidadMaximaKmh = 60,
-                Activa = true,
-                FechaRegistro = DateTime.UtcNow
-            };
-            context.Rutas.Add(route);
-            await context.SaveChangesAsync();
-
-            // 5. Seed Route Control Points (Lima coordinates path)
-            var p1 = new RutaPuntoControl { IdRuta = route.IdRuta, Orden = 1, Descripcion = "Inicio SJL", Latitud = -12.015000M, Longitud = -77.012000M, RadioToleranciaMetros = 150 };
-            var p2 = new RutaPuntoControl { IdRuta = route.IdRuta, Orden = 2, Descripcion = "Paradero Abancay", Latitud = -12.046000M, Longitud = -77.030000M, RadioToleranciaMetros = 150 };
-            var p3 = new RutaPuntoControl { IdRuta = route.IdRuta, Orden = 3, Descripcion = "Paradero Javier Prado", Latitud = -12.088000M, Longitud = -77.023000M, RadioToleranciaMetros = 150 };
-            var p4 = new RutaPuntoControl { IdRuta = route.IdRuta, Orden = 4, Descripcion = "Paradero Angamos", Latitud = -12.115000M, Longitud = -77.025000M, RadioToleranciaMetros = 150 };
-            var p5 = new RutaPuntoControl { IdRuta = route.IdRuta, Orden = 5, Descripcion = "Término Chorrillos", Latitud = -12.155000M, Longitud = -77.022000M, RadioToleranciaMetros = 150 };
-
-            context.RutaPuntosControl.AddRange(p1, p2, p3, p4, p5);
-
-            // 6. Seed Paraderos
-            var par1 = new Paradero { Nombre = "Estación Bayóvar", DireccionReferencia = "Av. Próceres de la Independencia", Latitud = -12.015000M, Longitud = -77.012000M, Distrito = "San Juan de Lurigancho", Activo = true };
-            var par2 = new Paradero { Nombre = "Paradero Abancay", DireccionReferencia = "Cruce Av. Abancay y Nicolás de Piérola", Latitud = -12.046000M, Longitud = -77.030000M, Distrito = "Lima Centro", Activo = true };
-            var par3 = new Paradero { Nombre = "Paradero Javier Prado", DireccionReferencia = "Av. Paseo de la República", Latitud = -12.088000M, Longitud = -77.023000M, Distrito = "La Victoria", Activo = true };
-            var par4 = new Paradero { Nombre = "Paradero Angamos", DireccionReferencia = "Cruce Av. Angamos Este", Latitud = -12.115000M, Longitud = -77.025000M, Distrito = "Surquillo", Activo = true };
-            var par5 = new Paradero { Nombre = "Paradero Terminal Chorrillos", DireccionReferencia = "Av. Huaylas cuadra 12", Latitud = -12.155000M, Longitud = -77.022000M, Distrito = "Chorrillos", Activo = true };
-
-            context.Paraderos.AddRange(par1, par2, par3, par4, par5);
-            await context.SaveChangesAsync();
-
-            // Link Paraderos to Route
-            context.RutaParaderos.AddRange(
-                new RutaParadero { IdRuta = route.IdRuta, IdParadero = par1.IdParadero, Orden = 1, TiempoEstimadoDesdeInicioMin = 0, Activo = true },
-                new RutaParadero { IdRuta = route.IdRuta, IdParadero = par2.IdParadero, Orden = 2, TiempoEstimadoDesdeInicioMin = 18, Activo = true },
-                new RutaParadero { IdRuta = route.IdRuta, IdParadero = par3.IdParadero, Orden = 3, TiempoEstimadoDesdeInicioMin = 36, Activo = true },
-                new RutaParadero { IdRuta = route.IdRuta, IdParadero = par4.IdParadero, Orden = 4, TiempoEstimadoDesdeInicioMin = 54, Activo = true },
-                new RutaParadero { IdRuta = route.IdRuta, IdParadero = par5.IdParadero, Orden = 5, TiempoEstimadoDesdeInicioMin = 75, Activo = true }
-            );
-
-            // 7. Seed Vehicle
-            var vehicle = new Vehiculo
-            {
-                IdEmpresa = company.IdEmpresa,
-                Placa = "F3V-894",
-                CodigoInterno = "V-102",
-                TipoVehiculo = "CUSTER",
-                Marca = "Toyota",
-                Modelo = "Coaster",
-                Anio = 2021,
-                CapacidadPasajeros = 25,
-                VelocidadMaximaKmh = 90,
-                Estado = true,
-                FechaRegistro = DateTime.UtcNow
-            };
-            context.Vehiculos.Add(vehicle);
-            await context.SaveChangesAsync();
-
-            // 8. Seed GPS Device (default simulator IMEI)
-            var device = new DispositivoGps
-            {
-                IdVehiculo = vehicle.IdVehiculo,
-                Imei = "IMEI88847294829",
-                NumeroSerie = "SN-GPS-102A",
-                Proveedor = "TrackerPeru",
-                FechaInstalacion = DateTime.UtcNow,
-                Estado = true
-            };
-            context.DispositivosGps.Add(device);
-
-            // 9. Seed Driver
-            var driver = new Conductor
-            {
-                IdEmpresa = company.IdEmpresa,
-                Nombres = "Carlos Daniel",
-                Apellidos = "Mendoza Flores",
-                Dni = "72849284",
-                NumeroLicencia = "Q72849284",
-                CategoriaLicencia = "A-IIIa",
-                FechaVencimientoLicencia = DateTime.Today.AddYears(3),
-                Telefono = "988776655",
-                Estado = true,
-                FechaRegistro = DateTime.UtcNow
-            };
-            context.Conductores.Add(driver);
-            await context.SaveChangesAsync();
-
-            // 10. Seed Operation Assignment for Today
-            var assignment = new AsignacionOperacion
-            {
-                IdRuta = route.IdRuta,
-                IdVehiculo = vehicle.IdVehiculo,
-                IdConductor = driver.IdConductor,
-                FechaInicioProgramada = DateTime.Today,
-                FechaFinProgramada = DateTime.Today.AddDays(1).AddSeconds(-1),
-                Turno = "MAÑANA",
-                Estado = "ACTIVA",
-                Observaciones = "Sembrado de Datos Dinámicos para Sustentación"
-            };
-            context.AsignacionesOperacion.Add(assignment);
-            await context.SaveChangesAsync();
-        }
+        await EnsureConductorRecordAsync(context, company.IdEmpresa, driver.IdUsuario);
+        var vehicles = await EnsureVehiclesAsync(context, company.IdEmpresa);
+        await EnsureDemoMaintenanceDataAsync(context, admin, chief, technician, driver, vehicles);
     }
 
-    private static string ComputeHash(string password)
-    {
-        using var sha256 = SHA256.Create();
-        var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-        var builder = new StringBuilder();
-        foreach (var b in bytes)
-        {
-            builder.Append(b.ToString("x2"));
-        }
-        return builder.ToString();
-    }
-
-    private static async Task EnsureCompatibilitySchemaAsync(ApplicationDbContext context)
+    private static async Task EnsurePasswordRecoverySchemaAsync(ApplicationDbContext context)
     {
         const string sql = """
             IF OBJECT_ID('PASSWORD_RESET_TOKENS', 'U') IS NULL
@@ -226,7 +75,7 @@ public static class DatabaseInitializer
                     token_hash NVARCHAR(200) NOT NULL,
                     expiration_utc DATETIME2 NOT NULL,
                     used_at_utc DATETIME2 NULL,
-                    created_at_utc DATETIME2 NOT NULL CONSTRAINT DF_PASSWORD_RESET_TOKENS_CREATED DEFAULT SYSUTCDATETIME(),
+                    created_at_utc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
                     requested_by_ip NVARCHAR(64) NULL,
                     email_sent_to NVARCHAR(200) NOT NULL,
                     CONSTRAINT FK_PASSWORD_RESET_TOKENS_USUARIOS FOREIGN KEY (id_usuario) REFERENCES USUARIOS(id_usuario)
@@ -235,734 +84,717 @@ public static class DatabaseInitializer
                 CREATE INDEX IX_PASSWORD_RESET_TOKENS_ID_USUARIO ON PASSWORD_RESET_TOKENS(id_usuario);
                 CREATE INDEX IX_PASSWORD_RESET_TOKENS_TOKEN_HASH ON PASSWORD_RESET_TOKENS(token_hash);
             END
-
-            IF OBJECT_ID('SOLICITUDES_PASAJERO', 'U') IS NULL
-            BEGIN
-                CREATE TABLE SOLICITUDES_PASAJERO
-                (
-                    id_solicitud_pasajero INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-                    id_usuario INT NOT NULL,
-                    id_ruta INT NULL,
-                    tipo_solicitud NVARCHAR(30) NOT NULL,
-                    asunto NVARCHAR(150) NOT NULL,
-                    descripcion NVARCHAR(2000) NOT NULL,
-                    estado NVARCHAR(30) NOT NULL CONSTRAINT DF_SOLICITUDES_PASAJERO_ESTADO DEFAULT 'PENDIENTE',
-                    fecha_registro DATETIME2 NOT NULL CONSTRAINT DF_SOLICITUDES_PASAJERO_FECHA DEFAULT SYSUTCDATETIME(),
-                    email_contacto NVARCHAR(200) NULL,
-                    telefono_contacto NVARCHAR(30) NULL,
-                    respuesta NVARCHAR(2000) NULL,
-                    fecha_respuesta DATETIME2 NULL,
-                    CONSTRAINT FK_SOLICITUDES_PASAJERO_USUARIOS FOREIGN KEY (id_usuario) REFERENCES USUARIOS(id_usuario),
-                    CONSTRAINT FK_SOLICITUDES_PASAJERO_RUTAS FOREIGN KEY (id_ruta) REFERENCES RUTAS(id_ruta)
-                );
-
-                CREATE INDEX IX_SOLICITUDES_PASAJERO_ID_USUARIO ON SOLICITUDES_PASAJERO(id_usuario);
-                CREATE INDEX IX_SOLICITUDES_PASAJERO_ID_RUTA ON SOLICITUDES_PASAJERO(id_ruta);
-            END
             """;
 
         await context.Database.ExecuteSqlRawAsync(sql);
     }
 
-    private static async Task EnsureOperationalDashboardProceduresAsync(ApplicationDbContext context)
+    private static async Task EnsureMaintenanceSchemaAsync(ApplicationDbContext context)
     {
-        const string summaryProcedure = """
-            CREATE OR ALTER PROCEDURE dbo.SP_DASHBOARD_OPERATIVO_RESUMEN
-                @FechaDesde DATE,
-                @FechaHasta DATE,
-                @IdRuta INT = NULL
-            AS
+        const string vehicleColumnsSql = """
+            IF COL_LENGTH('VEHICULOS', 'kilometraje_actual') IS NULL
             BEGIN
-                SET NOCOUNT ON;
+                ALTER TABLE VEHICULOS ADD kilometraje_actual DECIMAL(18,2) NOT NULL CONSTRAINT DF_VEHICULOS_KM_ACTUAL DEFAULT 0;
+            END
 
-                DECLARE @Inicio DATETIME2 = CAST(@FechaDesde AS DATETIME2);
-                DECLARE @Fin DATETIME2 = DATEADD(DAY, 1, CAST(@FechaHasta AS DATETIME2));
+            IF COL_LENGTH('VEHICULOS', 'estado_operativo') IS NULL
+            BEGIN
+                ALTER TABLE VEHICULOS ADD estado_operativo NVARCHAR(30) NOT NULL CONSTRAINT DF_VEHICULOS_ESTADO_OPERATIVO DEFAULT 'OPERATIVO';
+            END
 
-                CREATE TABLE #AlertasFiltradas
+            IF COL_LENGTH('VEHICULOS', 'fecha_ultima_inspeccion') IS NULL
+            BEGIN
+                ALTER TABLE VEHICULOS ADD fecha_ultima_inspeccion DATETIME2 NULL;
+            END
+
+            IF COL_LENGTH('VEHICULOS', 'fecha_ultimo_mantenimiento') IS NULL
+            BEGIN
+                ALTER TABLE VEHICULOS ADD fecha_ultimo_mantenimiento DATETIME2 NULL;
+            END
+
+            IF COL_LENGTH('VEHICULOS', 'observaciones_mantenimiento') IS NULL
+            BEGIN
+                ALTER TABLE VEHICULOS ADD observaciones_mantenimiento NVARCHAR(1000) NULL;
+            END
+            """;
+
+        const string vehicleNormalizationSql = """
+            UPDATE VEHICULOS
+            SET estado_operativo = ISNULL(NULLIF(estado_operativo, ''), 'OPERATIVO')
+            WHERE estado_operativo IS NULL OR estado_operativo = '';
+            """;
+
+        const string inspectionsSql = """
+            IF OBJECT_ID('INSPECCIONES_DIARIAS', 'U') IS NULL
+            BEGIN
+                CREATE TABLE INSPECCIONES_DIARIAS
                 (
-                    codigo NVARCHAR(50) NOT NULL,
-                    fecha_alerta DATETIME2 NOT NULL
+                    id_inspeccion_diaria INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    id_vehiculo INT NOT NULL,
+                    id_conductor_usuario INT NOT NULL,
+                    fecha_inspeccion DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+                    kilometraje DECIMAL(18,2) NOT NULL DEFAULT 0,
+                    nivel_combustible NVARCHAR(20) NOT NULL DEFAULT 'MEDIO',
+                    limpieza_cabina BIT NOT NULL DEFAULT 1,
+                    limpieza_exterior BIT NOT NULL DEFAULT 1,
+                    luces_operativas BIT NOT NULL DEFAULT 1,
+                    frenos_operativos BIT NOT NULL DEFAULT 1,
+                    neumaticos_operativos BIT NOT NULL DEFAULT 1,
+                    bocina_operativa BIT NOT NULL DEFAULT 1,
+                    espejos_operativos BIT NOT NULL DEFAULT 1,
+                    botiquin_disponible BIT NOT NULL DEFAULT 1,
+                    extintor_disponible BIT NOT NULL DEFAULT 1,
+                    documentos_completos BIT NOT NULL DEFAULT 1,
+                    resultado NVARCHAR(20) NOT NULL DEFAULT 'APROBADO',
+                    observaciones NVARCHAR(1000) NULL,
+                    CONSTRAINT FK_INSPECCIONES_DIARIAS_VEHICULOS FOREIGN KEY (id_vehiculo) REFERENCES VEHICULOS(id_vehiculo),
+                    CONSTRAINT FK_INSPECCIONES_DIARIAS_USUARIOS FOREIGN KEY (id_conductor_usuario) REFERENCES USUARIOS(id_usuario)
                 );
 
-                INSERT INTO #AlertasFiltradas (codigo, fecha_alerta)
-                SELECT ta.codigo, a.fecha_alerta
-                FROM ALERTAS a
-                INNER JOIN TIPOS_ALERTA ta ON ta.id_tipo_alerta = a.id_tipo_alerta
-                LEFT JOIN VIAJES vi ON vi.id_viaje = a.id_viaje
-                LEFT JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
-                WHERE a.fecha_alerta >= @Inicio
-                  AND a.fecha_alerta < @Fin
-                  AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta);
-
-                ;WITH Lecturas AS
-                (
-                    SELECT
-                        gl.id_lectura,
-                        CAST(gl.fecha_gps AS DATE) AS fecha,
-                        gl.fecha_gps,
-                        gl.id_vehiculo,
-                        v.placa,
-                        v.codigo_interno,
-                        et.razon_social AS empresa,
-                        r.codigo_ruta,
-                        r.nombre_ruta,
-                        ao.id_ruta,
-                        CAST(gl.latitud AS FLOAT) AS latitud,
-                        CAST(gl.longitud AS FLOAT) AS longitud,
-                        LAG(CAST(gl.latitud AS FLOAT)) OVER (PARTITION BY gl.id_vehiculo, CAST(gl.fecha_gps AS DATE) ORDER BY gl.fecha_gps, gl.id_lectura) AS prev_latitud,
-                        LAG(CAST(gl.longitud AS FLOAT)) OVER (PARTITION BY gl.id_vehiculo, CAST(gl.fecha_gps AS DATE) ORDER BY gl.fecha_gps, gl.id_lectura) AS prev_longitud
-                    FROM GPS_LECTURAS gl
-                    INNER JOIN VEHICULOS v ON v.id_vehiculo = gl.id_vehiculo
-                    INNER JOIN EMPRESAS_TRANSPORTE et ON et.id_empresa = v.id_empresa
-                    LEFT JOIN VIAJES vi ON vi.id_viaje = gl.id_viaje
-                    LEFT JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
-                    LEFT JOIN RUTAS r ON r.id_ruta = ao.id_ruta
-                    WHERE gl.fecha_gps >= @Inicio
-                      AND gl.fecha_gps < @Fin
-                      AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta)
-                ),
-                Distancias AS
-                (
-                    SELECT
-                        fecha,
-                        id_vehiculo,
-                        placa,
-                        codigo_interno,
-                        empresa,
-                        codigo_ruta,
-                        nombre_ruta,
-                        CASE
-                            WHEN prev_latitud IS NULL OR prev_longitud IS NULL THEN 0
-                            ELSE geography::Point(latitud, longitud, 4326).STDistance(geography::Point(prev_latitud, prev_longitud, 4326)) / 1000.0
-                        END AS distancia_km
-                    FROM Lecturas
-                ),
-                DistanciaAgrupada AS
-                (
-                    SELECT
-                        empresa,
-                        placa,
-                        codigo_interno,
-                        CONCAT(ISNULL(codigo_ruta, 'S/R'), ' - ', ISNULL(nombre_ruta, 'Sin ruta')) AS ruta,
-                        SUM(distancia_km) AS distancia_km
-                    FROM Distancias
-                    GROUP BY empresa, placa, codigo_interno, codigo_ruta, nombre_ruta
-                ),
-                Tiempo AS
-                (
-                    SELECT
-                        SUM(DATEDIFF(MINUTE, vi.fecha_inicio_real, ISNULL(vi.fecha_fin_real, SYSUTCDATETIME()))) AS tiempo_min
-                    FROM VIAJES vi
-                    INNER JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
-                    WHERE vi.fecha_inicio_real >= @Inicio
-                      AND vi.fecha_inicio_real < @Fin
-                      AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta)
-                )
-                SELECT
-                    CAST(ISNULL((SELECT SUM(distancia_km) FROM Distancias), 0) AS DECIMAL(18,2)) AS DistanciaRecorridaKm,
-                    CAST(ISNULL((SELECT tiempo_min FROM Tiempo), 0) AS INT) AS TiempoOperativoMin,
-                    CAST((SELECT COUNT(1) FROM #AlertasFiltradas WHERE codigo = 'VELOCIDAD') AS INT) AS ExcesosVelocidad,
-                    CAST((SELECT COUNT(1) FROM #AlertasFiltradas WHERE codigo = 'DESVIO_RUTA') AS INT) AS DesviosRuta,
-                    CAST(0 AS INT) AS ReclamosRecibidos,
-                    ISNULL((SELECT TOP 1 empresa FROM DistanciaAgrupada ORDER BY distancia_km DESC), 'Sin datos') AS TopEmpresa,
-                    ISNULL((SELECT TOP 1 placa FROM DistanciaAgrupada ORDER BY distancia_km DESC), 'Sin datos') AS TopVehiculo,
-                    ISNULL((SELECT TOP 1 ruta FROM DistanciaAgrupada ORDER BY distancia_km DESC), 'Sin datos') AS TopRuta,
-                    CAST(ISNULL((SELECT TOP 1 distancia_km FROM DistanciaAgrupada ORDER BY distancia_km DESC), 0) AS DECIMAL(18,2)) AS TopDistanciaKm;
-
-                SELECT
-                    FORMAT(CAST(fecha_alerta AS DATE), 'dd/MM') AS Label,
-                    CAST(COUNT(1) AS DECIMAL(18,2)) AS Value
-                FROM #AlertasFiltradas
-                WHERE codigo = 'VELOCIDAD'
-                GROUP BY CAST(fecha_alerta AS DATE)
-                ORDER BY CAST(fecha_alerta AS DATE);
-
-                SELECT
-                    FORMAT(DATEPART(HOUR, gl.fecha_gps), '00') AS Label,
-                    CAST(COUNT(DISTINCT gl.id_vehiculo) AS DECIMAL(18,2)) AS Value
-                FROM GPS_LECTURAS gl
-                LEFT JOIN VIAJES vi ON vi.id_viaje = gl.id_viaje
-                LEFT JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
-                WHERE gl.fecha_gps >= @Inicio
-                  AND gl.fecha_gps < @Fin
-                  AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta)
-                GROUP BY DATEPART(HOUR, gl.fecha_gps)
-                ORDER BY DATEPART(HOUR, gl.fecha_gps);
+                CREATE INDEX IX_INSPECCIONES_DIARIAS_VEHICULO_FECHA ON INSPECCIONES_DIARIAS(id_vehiculo, fecha_inspeccion DESC);
             END
             """;
 
-        const string detailProcedure = """
-            CREATE OR ALTER PROCEDURE dbo.SP_DASHBOARD_OPERATIVO_DETALLE
-                @Tipo NVARCHAR(30),
-                @FechaDesde DATE,
-                @FechaHasta DATE,
-                @IdRuta INT = NULL
-            AS
+        const string incidentsSql = """
+            IF OBJECT_ID('INCIDENCIAS_MANTENIMIENTO', 'U') IS NULL
             BEGIN
-                SET NOCOUNT ON;
+                CREATE TABLE INCIDENCIAS_MANTENIMIENTO
+                (
+                    id_incidencia_mantenimiento INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    id_vehiculo INT NOT NULL,
+                    id_reportado_por_usuario INT NOT NULL,
+                    id_inspeccion_diaria INT NULL,
+                    fecha_reporte DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+                    tipo_incidencia NVARCHAR(30) NOT NULL DEFAULT 'MECANICA',
+                    severidad NVARCHAR(20) NOT NULL DEFAULT 'MEDIA',
+                    titulo NVARCHAR(150) NOT NULL,
+                    descripcion NVARCHAR(2000) NOT NULL,
+                    estado NVARCHAR(30) NOT NULL DEFAULT 'REPORTADA',
+                    requiere_parada BIT NOT NULL DEFAULT 0,
+                    ubicacion_referencia NVARCHAR(200) NULL,
+                    fecha_cierre DATETIME2 NULL,
+                    CONSTRAINT FK_INCIDENCIAS_VEHICULOS FOREIGN KEY (id_vehiculo) REFERENCES VEHICULOS(id_vehiculo),
+                    CONSTRAINT FK_INCIDENCIAS_USUARIOS FOREIGN KEY (id_reportado_por_usuario) REFERENCES USUARIOS(id_usuario),
+                    CONSTRAINT FK_INCIDENCIAS_INSPECCIONES FOREIGN KEY (id_inspeccion_diaria) REFERENCES INSPECCIONES_DIARIAS(id_inspeccion_diaria)
+                );
 
-                DECLARE @Inicio DATETIME2 = CAST(@FechaDesde AS DATETIME2);
-                DECLARE @Fin DATETIME2 = DATEADD(DAY, 1, CAST(@FechaHasta AS DATETIME2));
-
-                IF @Tipo = 'distancia'
-                BEGIN
-                    ;WITH Lecturas AS
-                    (
-                        SELECT
-                            CAST(gl.fecha_gps AS DATE) AS fecha,
-                            gl.fecha_gps,
-                            gl.id_lectura,
-                            gl.id_vehiculo,
-                            et.razon_social AS empresa,
-                            v.placa,
-                            v.codigo_interno,
-                            CONCAT(ISNULL(r.codigo_ruta, 'S/R'), ' - ', ISNULL(r.nombre_ruta, 'Sin ruta')) AS ruta,
-                            CAST(gl.latitud AS FLOAT) AS latitud,
-                            CAST(gl.longitud AS FLOAT) AS longitud,
-                            LAG(CAST(gl.latitud AS FLOAT)) OVER (PARTITION BY gl.id_vehiculo, CAST(gl.fecha_gps AS DATE) ORDER BY gl.fecha_gps, gl.id_lectura) AS prev_latitud,
-                            LAG(CAST(gl.longitud AS FLOAT)) OVER (PARTITION BY gl.id_vehiculo, CAST(gl.fecha_gps AS DATE) ORDER BY gl.fecha_gps, gl.id_lectura) AS prev_longitud
-                        FROM GPS_LECTURAS gl
-                        INNER JOIN VEHICULOS v ON v.id_vehiculo = gl.id_vehiculo
-                        INNER JOIN EMPRESAS_TRANSPORTE et ON et.id_empresa = v.id_empresa
-                        LEFT JOIN VIAJES vi ON vi.id_viaje = gl.id_viaje
-                        LEFT JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
-                        LEFT JOIN RUTAS r ON r.id_ruta = ao.id_ruta
-                        WHERE gl.fecha_gps >= @Inicio
-                          AND gl.fecha_gps < @Fin
-                          AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta)
-                    )
-                    SELECT
-                        fecha AS Fecha,
-                        empresa AS Empresa,
-                        placa AS Placa,
-                        codigo_interno AS CodigoVehiculo,
-                        ruta AS Ruta,
-                        CAST(SUM(CASE WHEN prev_latitud IS NULL OR prev_longitud IS NULL THEN 0 ELSE geography::Point(latitud, longitud, 4326).STDistance(geography::Point(prev_latitud, prev_longitud, 4326)) / 1000.0 END) AS DECIMAL(18,2)) AS DistanciaKm,
-                        CAST(0 AS INT) AS TiempoOperativoMin,
-                        CAST(COUNT(1) AS INT) AS Eventos,
-                        CAST(NULL AS DECIMAL(18,2)) AS ValorMaximo,
-                        CAST('Recorrido GPS registrado' AS NVARCHAR(400)) AS Descripcion,
-                        CAST('REGISTRADO' AS NVARCHAR(30)) AS Estado
-                    FROM Lecturas
-                    GROUP BY fecha, empresa, placa, codigo_interno, ruta
-                    ORDER BY Fecha DESC, DistanciaKm DESC;
-                    RETURN;
-                END
-
-                IF @Tipo = 'tiempo'
-                BEGIN
-                    SELECT
-                        CAST(vi.fecha_inicio_real AS DATE) AS Fecha,
-                        et.razon_social AS Empresa,
-                        v.placa AS Placa,
-                        v.codigo_interno AS CodigoVehiculo,
-                        CONCAT(r.codigo_ruta, ' - ', r.nombre_ruta) AS Ruta,
-                        CAST(0 AS DECIMAL(18,2)) AS DistanciaKm,
-                        CAST(DATEDIFF(MINUTE, vi.fecha_inicio_real, ISNULL(vi.fecha_fin_real, SYSUTCDATETIME())) AS INT) AS TiempoOperativoMin,
-                        CAST(1 AS INT) AS Eventos,
-                        CAST(NULL AS DECIMAL(18,2)) AS ValorMaximo,
-                        CAST(CONCAT('Inicio: ', CONVERT(VARCHAR(16), vi.fecha_inicio_real, 120), ' / Fin: ', ISNULL(CONVERT(VARCHAR(16), vi.fecha_fin_real, 120), 'En progreso')) AS NVARCHAR(400)) AS Descripcion,
-                        vi.estado AS Estado
-                    FROM VIAJES vi
-                    INNER JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
-                    INNER JOIN VEHICULOS v ON v.id_vehiculo = ao.id_vehiculo
-                    INNER JOIN EMPRESAS_TRANSPORTE et ON et.id_empresa = v.id_empresa
-                    INNER JOIN RUTAS r ON r.id_ruta = ao.id_ruta
-                    WHERE vi.fecha_inicio_real >= @Inicio
-                      AND vi.fecha_inicio_real < @Fin
-                      AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta)
-                    ORDER BY vi.fecha_inicio_real DESC;
-                    RETURN;
-                END
-
-                SELECT
-                    CAST(a.fecha_alerta AS DATE) AS Fecha,
-                    et.razon_social AS Empresa,
-                    v.placa AS Placa,
-                    v.codigo_interno AS CodigoVehiculo,
-                    CONCAT(ISNULL(r.codigo_ruta, 'S/R'), ' - ', ISNULL(r.nombre_ruta, 'Sin ruta')) AS Ruta,
-                    CAST(0 AS DECIMAL(18,2)) AS DistanciaKm,
-                    CAST(0 AS INT) AS TiempoOperativoMin,
-                    CAST(1 AS INT) AS Eventos,
-                    CAST(a.valor_detectado AS DECIMAL(18,2)) AS ValorMaximo,
-                    a.descripcion AS Descripcion,
-                    a.estado AS Estado
-                FROM ALERTAS a
-                INNER JOIN TIPOS_ALERTA ta ON ta.id_tipo_alerta = a.id_tipo_alerta
-                INNER JOIN VEHICULOS v ON v.id_vehiculo = a.id_vehiculo
-                INNER JOIN EMPRESAS_TRANSPORTE et ON et.id_empresa = v.id_empresa
-                LEFT JOIN VIAJES vi ON vi.id_viaje = a.id_viaje
-                LEFT JOIN ASIGNACIONES_OPERACION ao ON ao.id_asignacion = vi.id_asignacion
-                LEFT JOIN RUTAS r ON r.id_ruta = ao.id_ruta
-                WHERE a.fecha_alerta >= @Inicio
-                  AND a.fecha_alerta < @Fin
-                  AND (@IdRuta IS NULL OR ao.id_ruta = @IdRuta)
-                  AND ((@Tipo = 'velocidad' AND ta.codigo = 'VELOCIDAD') OR (@Tipo = 'desvio' AND ta.codigo = 'DESVIO_RUTA'))
-                ORDER BY a.fecha_alerta DESC;
+                CREATE INDEX IX_INCIDENCIAS_ESTADO ON INCIDENCIAS_MANTENIMIENTO(estado, fecha_reporte DESC);
             END
             """;
 
-        await context.Database.ExecuteSqlRawAsync(summaryProcedure);
-        await context.Database.ExecuteSqlRawAsync(detailProcedure);
+        const string plansSql = """
+            IF OBJECT_ID('PLANES_MANTENIMIENTO_PREVENTIVO', 'U') IS NULL
+            BEGIN
+                CREATE TABLE PLANES_MANTENIMIENTO_PREVENTIVO
+                (
+                    id_plan_mantenimiento_preventivo INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    id_vehiculo INT NOT NULL,
+                    id_creado_por_usuario INT NOT NULL,
+                    fecha_registro DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+                    proxima_fecha_programada DATETIME2 NOT NULL,
+                    frecuencia_dias INT NOT NULL,
+                    frecuencia_kilometros DECIMAL(18,2) NULL,
+                    actividades NVARCHAR(2000) NOT NULL,
+                    estado NVARCHAR(20) NOT NULL DEFAULT 'PROGRAMADO',
+                    prioridad NVARCHAR(20) NOT NULL DEFAULT 'MEDIA',
+                    observaciones NVARCHAR(1000) NULL,
+                    ultima_ejecucion DATETIME2 NULL,
+                    CONSTRAINT FK_PLANES_VEHICULOS FOREIGN KEY (id_vehiculo) REFERENCES VEHICULOS(id_vehiculo),
+                    CONSTRAINT FK_PLANES_USUARIOS FOREIGN KEY (id_creado_por_usuario) REFERENCES USUARIOS(id_usuario)
+                );
+
+                CREATE INDEX IX_PLANES_PROXIMA_FECHA ON PLANES_MANTENIMIENTO_PREVENTIVO(proxima_fecha_programada, estado);
+            END
+            """;
+
+        const string ordersSql = """
+            IF OBJECT_ID('ORDENES_TRABAJO', 'U') IS NULL
+            BEGIN
+                CREATE TABLE ORDENES_TRABAJO
+                (
+                    id_orden_trabajo INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    id_vehiculo INT NOT NULL,
+                    id_generado_por_usuario INT NOT NULL,
+                    id_tecnico_usuario INT NULL,
+                    id_plan_mantenimiento_preventivo INT NULL,
+                    id_incidencia_mantenimiento INT NULL,
+                    numero_orden NVARCHAR(30) NOT NULL,
+                    tipo_orden NVARCHAR(20) NOT NULL DEFAULT 'CORRECTIVO',
+                    prioridad NVARCHAR(20) NOT NULL DEFAULT 'MEDIA',
+                    estado NVARCHAR(20) NOT NULL DEFAULT 'GENERADA',
+                    fecha_generacion DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+                    fecha_programada DATETIME2 NOT NULL,
+                    fecha_asignacion DATETIME2 NULL,
+                    fecha_inicio DATETIME2 NULL,
+                    fecha_fin DATETIME2 NULL,
+                    trabajo_solicitado NVARCHAR(2000) NOT NULL,
+                    diagnostico_inicial NVARCHAR(2000) NULL,
+                    observaciones NVARCHAR(1000) NULL,
+                    CONSTRAINT FK_ORDENES_VEHICULOS FOREIGN KEY (id_vehiculo) REFERENCES VEHICULOS(id_vehiculo),
+                    CONSTRAINT FK_ORDENES_USUARIO_GENERA FOREIGN KEY (id_generado_por_usuario) REFERENCES USUARIOS(id_usuario),
+                    CONSTRAINT FK_ORDENES_USUARIO_TECNICO FOREIGN KEY (id_tecnico_usuario) REFERENCES USUARIOS(id_usuario),
+                    CONSTRAINT FK_ORDENES_PLAN FOREIGN KEY (id_plan_mantenimiento_preventivo) REFERENCES PLANES_MANTENIMIENTO_PREVENTIVO(id_plan_mantenimiento_preventivo),
+                    CONSTRAINT FK_ORDENES_INCIDENCIA FOREIGN KEY (id_incidencia_mantenimiento) REFERENCES INCIDENCIAS_MANTENIMIENTO(id_incidencia_mantenimiento)
+                );
+
+                CREATE UNIQUE INDEX UX_ORDENES_TRABAJO_NUMERO ON ORDENES_TRABAJO(numero_orden);
+                CREATE INDEX IX_ORDENES_TRABAJO_ESTADO ON ORDENES_TRABAJO(estado, fecha_programada DESC);
+            END
+            """;
+
+        const string executionsSql = """
+            IF OBJECT_ID('MANTENIMIENTOS_EJECUTADOS', 'U') IS NULL
+            BEGIN
+                CREATE TABLE MANTENIMIENTOS_EJECUTADOS
+                (
+                    id_mantenimiento_ejecutado INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    id_orden_trabajo INT NOT NULL,
+                    id_tecnico_usuario INT NOT NULL,
+                    fecha_inicio DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+                    fecha_fin DATETIME2 NULL,
+                    tipo_mantenimiento NVARCHAR(20) NOT NULL DEFAULT 'CORRECTIVO',
+                    diagnostico NVARCHAR(2000) NOT NULL,
+                    acciones_realizadas NVARCHAR(4000) NOT NULL,
+                    recomendaciones NVARCHAR(2000) NULL,
+                    estado_resultado NVARCHAR(30) NOT NULL DEFAULT 'COMPLETADO',
+                    nuevo_estado_operativo_vehiculo NVARCHAR(30) NOT NULL DEFAULT 'OPERATIVO',
+                    CONSTRAINT FK_MANTENIMIENTOS_ORDENES FOREIGN KEY (id_orden_trabajo) REFERENCES ORDENES_TRABAJO(id_orden_trabajo),
+                    CONSTRAINT FK_MANTENIMIENTOS_TECNICO FOREIGN KEY (id_tecnico_usuario) REFERENCES USUARIOS(id_usuario)
+                );
+
+                CREATE INDEX IX_MANTENIMIENTOS_FECHA_FIN ON MANTENIMIENTOS_EJECUTADOS(fecha_fin DESC);
+            END
+            """;
+
+        const string sparePartsSql = """
+            IF OBJECT_ID('REPUESTOS_UTILIZADOS', 'U') IS NULL
+            BEGIN
+                CREATE TABLE REPUESTOS_UTILIZADOS
+                (
+                    id_repuesto_utilizado INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    id_mantenimiento_ejecutado INT NOT NULL,
+                    codigo_repuesto NVARCHAR(50) NOT NULL,
+                    nombre_repuesto NVARCHAR(150) NOT NULL,
+                    cantidad DECIMAL(18,2) NOT NULL DEFAULT 1,
+                    costo_unitario DECIMAL(18,2) NOT NULL DEFAULT 0,
+                    observaciones NVARCHAR(500) NULL,
+                    CONSTRAINT FK_REPUESTOS_MANTENIMIENTOS FOREIGN KEY (id_mantenimiento_ejecutado) REFERENCES MANTENIMIENTOS_EJECUTADOS(id_mantenimiento_ejecutado)
+                );
+            END
+            """;
+
+        await context.Database.ExecuteSqlRawAsync(vehicleColumnsSql);
+        await context.Database.ExecuteSqlRawAsync(vehicleNormalizationSql);
+        await context.Database.ExecuteSqlRawAsync(inspectionsSql);
+        await context.Database.ExecuteSqlRawAsync(incidentsSql);
+        await context.Database.ExecuteSqlRawAsync(plansSql);
+        await context.Database.ExecuteSqlRawAsync(ordersSql);
+        await context.Database.ExecuteSqlRawAsync(executionsSql);
+        await context.Database.ExecuteSqlRawAsync(sparePartsSql);
     }
 
-    private static async Task EnsureElChinoRouteAsync(ApplicationDbContext context)
+    private static async Task EnsureRolesAsync(ApplicationDbContext context)
     {
-        const string routeCode = "8108-C";
-
-        var company = await context.EmpresasTransporte
-            .FirstOrDefaultAsync(e => e.Ruc == "20581081080");
-
-        if (company == null)
+        var requiredRoles = new[]
         {
-            company = new EmpresaTransporte
-            {
-                Ruc = "20581081080",
-                RazonSocial = "El Condor S.A.",
-                NombreComercial = "Los Chinos",
-                Direccion = "Ruta Villa El Salvador - Puente Piedra",
-                Telefono = "980793614",
-                Email = "operaciones@loschinos.local",
-                Estado = true,
-                FechaRegistro = DateTime.UtcNow
-            };
-            context.EmpresasTransporte.Add(company);
-            await context.SaveChangesAsync();
-        }
-
-        var route = await context.Rutas.FirstOrDefaultAsync(r => r.CodigoRuta == routeCode);
-        if (route == null)
-        {
-            route = new Ruta
-            {
-                IdEmpresa = company.IdEmpresa,
-                CodigoRuta = routeCode,
-                NombreRuta = "El Chino C - Villa El Salvador - Puente Piedra",
-                Origen = "Av. Lima, Villa El Salvador",
-                Destino = "Valle Hermoso - Lomas, Puente Piedra",
-                DistanciaKm = 62.8M,
-                TiempoEstimadoMin = 172,
-                VelocidadMaximaKmh = 60,
-                Activa = true,
-                FechaRegistro = DateTime.UtcNow
-            };
-            context.Rutas.Add(route);
-            await context.SaveChangesAsync();
-        }
-
-        if (!await context.RutaPuntosControl.AnyAsync(p => p.IdRuta == route.IdRuta))
-        {
-            var controlPoints = new[]
-            {
-                ("Los Chinos - Av. Lima", -12.227500M, -76.943500M),
-                ("Separadora Industrial", -12.218700M, -76.950500M),
-                ("Ovalo Oasis / 200 Millas", -12.207000M, -76.939500M),
-                ("Pastor Sevilla", -12.196600M, -76.948900M),
-                ("Proceres / Mall del Sur", -12.165800M, -76.970600M),
-                ("Atocongo", -12.148900M, -76.982600M),
-                ("Benavides", -12.126300M, -76.992200M),
-                ("Primavera / Pentagonito", -12.104900M, -76.981700M),
-                ("Javier Prado", -12.087200M, -76.978100M),
-                ("Puente Santa Anita", -12.049000M, -76.958000M),
-                ("Puente Nuevo", -12.035300M, -76.947400M),
-                ("Acho", -12.041900M, -77.023400M),
-                ("Caqueta", -12.028700M, -77.049000M),
-                ("Habich", -12.015300M, -77.053000M),
-                ("Fiori / Plaza Norte", -12.006200M, -77.059600M),
-                ("Mega Plaza", -11.994400M, -77.061000M),
-                ("Panamericana Norte / Pro", -11.962900M, -77.072000M),
-                ("Trapiche", -11.925700M, -77.076300M),
-                ("Puente Piedra", -11.863900M, -77.076100M),
-                ("Ovalo Zapallal", -11.825900M, -77.088300M),
-                ("Valle Hermoso - Lomas", -11.807700M, -77.095000M)
-            };
-
-            var order = 1;
-            context.RutaPuntosControl.AddRange(controlPoints.Select(point => new RutaPuntoControl
-            {
-                IdRuta = route.IdRuta,
-                Orden = order++,
-                Descripcion = point.Item1,
-                Latitud = point.Item2,
-                Longitud = point.Item3,
-                RadioToleranciaMetros = 300,
-                EsParadero = true
-            }));
-            await context.SaveChangesAsync();
-        }
-
-        if (!await context.RutaParaderos.AnyAsync(rp => rp.IdRuta == route.IdRuta))
-        {
-            var stops = new[]
-            {
-                ("Los Chinos", "Av. Lima", "Villa El Salvador", -12.227500M, -76.943500M, 0),
-                ("Ovalo Oasis & 200 Millas", "Av. 200 Millas", "Villa El Salvador", -12.207000M, -76.939500M, 14),
-                ("Proceres / Mall del Sur", "Av. Los Heroes", "San Juan de Miraflores", -12.165800M, -76.970600M, 35),
-                ("Atocongo", "Panamericana Sur", "San Juan de Miraflores", -12.148900M, -76.982600M, 44),
-                ("Benavides", "Av. Benavides", "Santiago de Surco", -12.126300M, -76.992200M, 58),
-                ("Javier Prado", "Av. Javier Prado", "La Molina", -12.087200M, -76.978100M, 75),
-                ("Puente Santa Anita", "Carretera Central", "Santa Anita", -12.049000M, -76.958000M, 92),
-                ("Acho", "Via de Evitamiento", "Rimac", -12.041900M, -77.023400M, 108),
-                ("Caqueta", "Panamericana Norte", "San Martin de Porres", -12.028700M, -77.049000M, 118),
-                ("Fiori / Plaza Norte", "Panamericana Norte", "Independencia", -12.006200M, -77.059600M, 128),
-                ("Mega Plaza", "Panamericana Norte", "Independencia", -11.994400M, -77.061000M, 134),
-                ("Trapiche", "Panamericana Norte", "Comas", -11.925700M, -77.076300M, 150),
-                ("Ovalo Zapallal", "Panamericana Norte", "Puente Piedra", -11.825900M, -77.088300M, 166),
-                ("Valle Hermoso - Lomas", "Valle Hermoso", "Puente Piedra", -11.807700M, -77.095000M, 172)
-            };
-
-            var order = 1;
-            foreach (var stop in stops)
-            {
-                var paradero = await FindOrCreateParaderoAsync(
-                    context,
-                    stop.Item1,
-                    stop.Item2,
-                    stop.Item3,
-                    stop.Item4,
-                    stop.Item5);
-
-                context.RutaParaderos.Add(new RutaParadero
-                {
-                    IdRuta = route.IdRuta,
-                    IdParadero = paradero.IdParadero,
-                    Orden = order++,
-                    TiempoEstimadoDesdeInicioMin = stop.Item6,
-                    Activo = true
-                });
-            }
-            await context.SaveChangesAsync();
-        }
-
-        var drivers = new[]
-        {
-            ("Miguel Angel", "Quispe Huaman", "45892173", "Q45892173", "987654321"),
-            ("Jose Luis", "Ramos Paredes", "47123698", "Q47123698", "986123457"),
-            ("Edwin Raul", "Soto Cardenas", "43678125", "Q43678125", "984567123")
+            Roles.Administrador,
+            Roles.JefeMantenimiento,
+            Roles.TecnicoMantenimiento,
+            Roles.Conductor
         };
 
-        foreach (var driverSeed in drivers)
+        foreach (var roleName in requiredRoles)
         {
-            if (!await context.Conductores.AnyAsync(c => c.Dni == driverSeed.Item3))
+            var role = await context.Roles.FirstOrDefaultAsync(r => r.Nombre == roleName);
+            if (role != null)
             {
-                context.Conductores.Add(new Conductor
-                {
-                    IdEmpresa = company.IdEmpresa,
-                    Nombres = driverSeed.Item1,
-                    Apellidos = driverSeed.Item2,
-                    Dni = driverSeed.Item3,
-                    NumeroLicencia = driverSeed.Item4,
-                    CategoriaLicencia = "A-IIIa",
-                    FechaVencimientoLicencia = DateTime.Today.AddYears(3),
-                    Telefono = driverSeed.Item5,
-                    Estado = true,
-                    FechaRegistro = DateTime.UtcNow
-                });
+                role.Activo = true;
+                role.Descripcion = $"Rol de {roleName} para gestion del mantenimiento de flota.";
+                continue;
             }
+
+            context.Roles.Add(new Rol
+            {
+                Nombre = roleName,
+                Descripcion = $"Rol de {roleName} para gestion del mantenimiento de flota.",
+                Activo = true,
+                FechaCreacion = DateTime.UtcNow
+            });
         }
+
         await context.SaveChangesAsync();
+    }
 
-        var vehicles = new[]
+    private static async Task<EmpresaTransporte> EnsureCompanyAsync(ApplicationDbContext context)
+    {
+        var company = await context.EmpresasTransporte
+            .OrderBy(e => e.IdEmpresa)
+            .FirstOrDefaultAsync();
+
+        if (company != null)
         {
-            ("CHI-108", "CH-C01", "IMEI81080001"),
-            ("CHI-218", "CH-C02", "IMEI81080002"),
-            ("CHI-326", "CH-C03", "IMEI81080003")
+            company.Estado = true;
+            if (string.IsNullOrWhiteSpace(company.NombreComercial))
+            {
+                company.NombreComercial = "SIMCRUL Flota";
+            }
+
+            await context.SaveChangesAsync();
+            return company;
+        }
+
+        company = new EmpresaTransporte
+        {
+            Ruc = "20601234567",
+            RazonSocial = "SIMCRUL Transporte y Mantenimiento S.A.C.",
+            NombreComercial = "SIMCRUL Flota",
+            Direccion = "Av. Industrial 100, Lima",
+            Telefono = "014445555",
+            Email = "operaciones@simcrul.local",
+            Estado = true,
+            FechaRegistro = DateTime.UtcNow
         };
 
-        foreach (var vehicleSeed in vehicles)
+        context.EmpresasTransporte.Add(company);
+        await context.SaveChangesAsync();
+        return company;
+    }
+
+    private static async Task<Usuario> EnsureUserAsync(
+        ApplicationDbContext context,
+        string username,
+        string email,
+        string nombres,
+        string apellidos,
+        string telefono,
+        string roleName,
+        string password)
+    {
+        var role = await context.Roles.FirstAsync(r => r.Nombre == roleName);
+        var user = await context.Usuarios
+            .FirstOrDefaultAsync(u => u.Username == username || u.Email == email);
+
+        if (user == null)
         {
-            var vehicle = await context.Vehiculos.FirstOrDefaultAsync(v => v.Placa == vehicleSeed.Item1);
+            user = new Usuario
+            {
+                Username = username,
+                Email = email,
+                Nombres = nombres,
+                Apellidos = apellidos,
+                Telefono = telefono,
+                PasswordHash = ComputeHash(password),
+                IdRol = role.IdRol,
+                Activo = true,
+                FechaCreacion = DateTime.UtcNow
+            };
+
+            context.Usuarios.Add(user);
+        }
+        else
+        {
+            user.Username = username;
+            user.Email = email;
+            user.Nombres = nombres;
+            user.Apellidos = apellidos;
+            user.Telefono = telefono;
+            user.PasswordHash = ComputeHash(password);
+            user.IdRol = role.IdRol;
+            user.Activo = true;
+        }
+
+        await context.SaveChangesAsync();
+        return user;
+    }
+
+    private static async Task EnsureConductorRecordAsync(ApplicationDbContext context, int companyId, int userId)
+    {
+        var existing = await context.Conductores.FirstOrDefaultAsync(c =>
+            c.IdUsuario == userId ||
+            c.Dni == "72849284" ||
+            c.NumeroLicencia == "Q72849284");
+
+        if (existing != null)
+        {
+            existing.IdEmpresa = companyId;
+            existing.IdUsuario = userId;
+            existing.Nombres = "Carlos";
+            existing.Apellidos = "Mendoza";
+            existing.Dni = "72849284";
+            existing.NumeroLicencia = "Q72849284";
+            existing.CategoriaLicencia = "A-IIIB";
+            existing.FechaVencimientoLicencia = DateTime.Today.AddYears(2);
+            existing.Telefono = "999444444";
+            existing.Estado = true;
+            await context.SaveChangesAsync();
+            return;
+        }
+
+        context.Conductores.Add(new Conductor
+        {
+            IdEmpresa = companyId,
+            IdUsuario = userId,
+            Nombres = "Carlos",
+            Apellidos = "Mendoza",
+            Dni = "72849284",
+            NumeroLicencia = "Q72849284",
+            CategoriaLicencia = "A-IIIB",
+            FechaVencimientoLicencia = DateTime.Today.AddYears(2),
+            Telefono = "999444444",
+            Estado = true,
+            FechaRegistro = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task<List<Vehiculo>> EnsureVehiclesAsync(ApplicationDbContext context, int companyId)
+    {
+        var seeds = new[]
+        {
+            new { Placa = "ABC-101", Codigo = "BUS-101", Tipo = "BUS", Marca = "Mercedes-Benz", Modelo = "OF-1721", Anio = 2021, Capacidad = 45, Velocidad = 90M, Km = 124560M, EstadoOperativo = "OPERATIVO", Observaciones = "Unidad disponible para servicio." },
+            new { Placa = "ABC-102", Codigo = "BUS-102", Tipo = "BUS", Marca = "Volvo", Modelo = "B270F", Anio = 2020, Capacidad = 50, Velocidad = 90M, Km = 143220M, EstadoOperativo = "EN_MANTENIMIENTO", Observaciones = "Pendiente de atencion por sistema de frenos." },
+            new { Placa = "ABC-103", Codigo = "BUS-103", Tipo = "BUS", Marca = "Scania", Modelo = "K280", Anio = 2022, Capacidad = 52, Velocidad = 90M, Km = 98740M, EstadoOperativo = "OPERATIVO", Observaciones = "Plan preventivo programado." }
+        };
+
+        foreach (var seed in seeds)
+        {
+            var vehicle = await context.Vehiculos.FirstOrDefaultAsync(v => v.Placa == seed.Placa);
             if (vehicle == null)
             {
                 vehicle = new Vehiculo
                 {
-                    IdEmpresa = company.IdEmpresa,
-                    Placa = vehicleSeed.Item1,
-                    CodigoInterno = vehicleSeed.Item2,
-                    TipoVehiculo = "BUS",
-                    Marca = "Mercedes-Benz",
-                    Modelo = "OF-1721",
-                    Anio = 2022,
-                    CapacidadPasajeros = 80,
-                    VelocidadMaximaKmh = 90,
+                    IdEmpresa = companyId,
+                    Placa = seed.Placa,
+                    CodigoInterno = seed.Codigo,
+                    TipoVehiculo = seed.Tipo,
+                    Marca = seed.Marca,
+                    Modelo = seed.Modelo,
+                    Anio = seed.Anio,
+                    CapacidadPasajeros = seed.Capacidad,
+                    VelocidadMaximaKmh = seed.Velocidad,
+                    KilometrajeActual = seed.Km,
+                    EstadoOperativo = seed.EstadoOperativo,
+                    ObservacionesMantenimiento = seed.Observaciones,
                     Estado = true,
                     FechaRegistro = DateTime.UtcNow
                 };
+
                 context.Vehiculos.Add(vehicle);
-                await context.SaveChangesAsync();
             }
-
-            if (!await context.DispositivosGps.AnyAsync(d => d.Imei == vehicleSeed.Item3))
+            else
             {
-                context.DispositivosGps.Add(new DispositivoGps
-                {
-                    IdVehiculo = vehicle.IdVehiculo,
-                    Imei = vehicleSeed.Item3,
-                    NumeroSerie = $"SN-{vehicleSeed.Item3}",
-                    Proveedor = "TrackerPeru",
-                    FechaInstalacion = DateTime.UtcNow,
-                    Estado = true
-                });
+                vehicle.IdEmpresa = companyId;
+                vehicle.CodigoInterno = seed.Codigo;
+                vehicle.TipoVehiculo = seed.Tipo;
+                vehicle.Marca = seed.Marca;
+                vehicle.Modelo = seed.Modelo;
+                vehicle.Anio = seed.Anio;
+                vehicle.CapacidadPasajeros = seed.Capacidad;
+                vehicle.VelocidadMaximaKmh = seed.Velocidad;
+                vehicle.KilometrajeActual = seed.Km;
+                vehicle.EstadoOperativo = seed.EstadoOperativo;
+                vehicle.ObservacionesMantenimiento = seed.Observaciones;
+                vehicle.Estado = true;
             }
         }
+
         await context.SaveChangesAsync();
 
-        var routeDrivers = await context.Conductores
-            .Where(c => c.IdEmpresa == company.IdEmpresa)
-            .OrderBy(c => c.IdConductor)
-            .Take(3)
+        return await context.Vehiculos
+            .Where(v => seeds.Select(s => s.Placa).Contains(v.Placa))
+            .OrderBy(v => v.Placa)
             .ToListAsync();
-
-        var routeVehicles = await context.Vehiculos
-            .Where(v => v.IdEmpresa == company.IdEmpresa && v.CodigoInterno.StartsWith("CH-C"))
-            .OrderBy(v => v.IdVehiculo)
-            .ToListAsync();
-
-        for (var i = 0; i < Math.Min(routeDrivers.Count, routeVehicles.Count); i++)
-        {
-            var vehicle = routeVehicles[i];
-            var driver = routeDrivers[i];
-            var existsAssignment = await context.AsignacionesOperacion.AnyAsync(a =>
-                a.IdRuta == route.IdRuta &&
-                a.IdVehiculo == vehicle.IdVehiculo &&
-                a.Estado == "ACTIVA");
-
-            if (!existsAssignment)
-            {
-                context.AsignacionesOperacion.Add(new AsignacionOperacion
-                {
-                    IdRuta = route.IdRuta,
-                    IdVehiculo = vehicle.IdVehiculo,
-                    IdConductor = driver.IdConductor,
-                    FechaInicioProgramada = DateTime.Today.AddHours(4),
-                    FechaFinProgramada = DateTime.Today.AddHours(21).AddMinutes(16),
-                    Turno = i == 0 ? "MANANA" : i == 1 ? "TARDE" : "REFUERZO",
-                    Estado = "ACTIVA",
-                    Observaciones = "Ruta 8108-C El Chino C sembrada desde Moovit como referencia de pruebas."
-                });
-            }
-        }
-        await context.SaveChangesAsync();
-
-        await EnsureElChinoOperationalHistoryAsync(context, route.IdRuta);
     }
 
-    private static async Task EnsureElChinoOperationalHistoryAsync(ApplicationDbContext context, int routeId)
-    {
-        var assignments = await context.AsignacionesOperacion
-            .Where(a => a.IdRuta == routeId && a.Estado == "ACTIVA")
-            .OrderBy(a => a.IdAsignacion)
-            .Take(3)
-            .ToListAsync();
-
-        if (assignments.Count == 0)
-        {
-            return;
-        }
-
-        var assignmentIds = assignments.Select(a => a.IdAsignacion).ToArray();
-        var alreadySeeded = await context.Viajes.AnyAsync(v =>
-            assignmentIds.Contains(v.IdAsignacion) &&
-            v.Observaciones == "Historial demo El Chino C para dashboard operativo.");
-
-        if (alreadySeeded)
-        {
-            return;
-        }
-
-        var controlPoints = await context.RutaPuntosControl
-            .Where(p => p.IdRuta == routeId)
-            .OrderBy(p => p.Orden)
-            .Select(p => new { p.Latitud, p.Longitud })
-            .ToListAsync();
-
-        if (controlPoints.Count < 2)
-        {
-            return;
-        }
-
-        var speedAlertType = await FindOrCreateAlertTypeAsync(
-            context,
-            "VELOCIDAD",
-            "Exceso de velocidad",
-            "Unidad supera la velocidad maxima permitida para la ruta.",
-            4);
-
-        var deviationAlertType = await FindOrCreateAlertTypeAsync(
-            context,
-            "DESVIO_RUTA",
-            "Desvio de ruta",
-            "Unidad fuera del trazo permitido de la ruta.",
-            3);
-
-        var today = DateTime.Today;
-        var sampledPoints = controlPoints
-            .Where((_, index) => index % 3 == 0)
-            .Append(controlPoints.Last())
-            .ToList();
-
-        for (var dayOffset = 7; dayOffset >= 1; dayOffset--)
-        {
-            var serviceDate = today.AddDays(-dayOffset);
-
-            for (var assignmentIndex = 0; assignmentIndex < assignments.Count; assignmentIndex++)
-            {
-                var assignment = assignments[assignmentIndex];
-                var start = serviceDate
-                    .AddHours(5 + assignmentIndex * 3)
-                    .AddMinutes((dayOffset + assignmentIndex) % 4 * 7);
-                var durationMinutes = 145 + dayOffset * 5 + assignmentIndex * 12;
-                var end = start.AddMinutes(durationMinutes);
-                var firstPoint = sampledPoints.First();
-                var lastPoint = sampledPoints.Last();
-
-                var trip = new Viaje
-                {
-                    IdAsignacion = assignment.IdAsignacion,
-                    FechaInicioReal = start,
-                    FechaFinReal = end,
-                    Estado = "FINALIZADO",
-                    LatitudInicio = firstPoint.Latitud,
-                    LongitudInicio = firstPoint.Longitud,
-                    LatitudFin = lastPoint.Latitud,
-                    LongitudFin = lastPoint.Longitud,
-                    Observaciones = "Historial demo El Chino C para dashboard operativo.",
-                    ScoreConduccion = 82 + (dayOffset + assignmentIndex) % 12
-                };
-
-                context.Viajes.Add(trip);
-                await context.SaveChangesAsync();
-
-                var deviceId = await context.DispositivosGps
-                    .Where(d => d.IdVehiculo == assignment.IdVehiculo && d.Estado)
-                    .Select(d => (int?)d.IdDispositivo)
-                    .FirstOrDefaultAsync();
-
-                var readings = new List<GpsLectura>();
-                for (var pointIndex = 0; pointIndex < sampledPoints.Count; pointIndex++)
-                {
-                    var point = sampledPoints[pointIndex];
-                    var readingTime = start.AddMinutes(durationMinutes * pointIndex / Math.Max(sampledPoints.Count - 1, 1));
-                    var speedingPoint = pointIndex == 3 && (dayOffset + assignmentIndex) % 2 == 0;
-                    readings.Add(new GpsLectura
-                    {
-                        IdViaje = trip.IdViaje,
-                        IdVehiculo = assignment.IdVehiculo,
-                        IdDispositivo = deviceId,
-                        FechaGps = readingTime,
-                        Latitud = point.Latitud,
-                        Longitud = point.Longitud,
-                        VelocidadKmh = speedingPoint ? 74 + assignmentIndex * 3 : 36 + (pointIndex * 4 + dayOffset) % 20,
-                        RumboGrados = 15 + pointIndex * 12,
-                        PrecisionMetros = 8,
-                        OrigenDato = "SIMULADOR",
-                        Procesado = true,
-                        FechaRegistro = readingTime
-                    });
-                }
-
-                context.GpsLecturas.AddRange(readings);
-                await context.SaveChangesAsync();
-
-                var speedReading = readings.FirstOrDefault(r => r.VelocidadKmh > 60);
-                if (speedReading != null)
-                {
-                    context.Alertas.Add(new Alerta
-                    {
-                        IdTipoAlerta = speedAlertType.IdTipoAlerta,
-                        IdViaje = trip.IdViaje,
-                        IdVehiculo = assignment.IdVehiculo,
-                        IdConductor = assignment.IdConductor,
-                        IdLecturaGps = speedReading.IdLectura,
-                        FechaAlerta = speedReading.FechaGps,
-                        Descripcion = "Exceso de velocidad detectado durante recorrido historico de prueba.",
-                        ValorDetectado = speedReading.VelocidadKmh,
-                        ValorPermitido = 60,
-                        Latitud = speedReading.Latitud,
-                        Longitud = speedReading.Longitud,
-                        Estado = "PENDIENTE"
-                    });
-                }
-
-                if ((dayOffset + assignmentIndex) % 3 == 0)
-                {
-                    var deviationReading = readings[Math.Min(4, readings.Count - 1)];
-                    context.Alertas.Add(new Alerta
-                    {
-                        IdTipoAlerta = deviationAlertType.IdTipoAlerta,
-                        IdViaje = trip.IdViaje,
-                        IdVehiculo = assignment.IdVehiculo,
-                        IdConductor = assignment.IdConductor,
-                        IdLecturaGps = deviationReading.IdLectura,
-                        FechaAlerta = deviationReading.FechaGps.AddMinutes(2),
-                        Descripcion = "Desvio de ruta: vehiculo fuera del corredor permitido.",
-                        ValorDetectado = 420,
-                        ValorPermitido = 300,
-                        Latitud = deviationReading.Latitud + 0.002M,
-                        Longitud = deviationReading.Longitud - 0.002M,
-                        Estado = "PENDIENTE"
-                    });
-                }
-
-                await context.SaveChangesAsync();
-            }
-        }
-    }
-
-    private static async Task<TipoAlerta> FindOrCreateAlertTypeAsync(
+    private static async Task EnsureDemoMaintenanceDataAsync(
         ApplicationDbContext context,
-        string codigo,
-        string nombre,
-        string descripcion,
-        int severidad)
+        Usuario admin,
+        Usuario chief,
+        Usuario technician,
+        Usuario driver,
+        List<Vehiculo> vehicles)
     {
-        var type = await context.TiposAlerta.FirstOrDefaultAsync(t => t.Codigo == codigo);
-        if (type != null)
+        var bus101 = vehicles.First(v => v.Placa == "ABC-101");
+        var bus102 = vehicles.First(v => v.Placa == "ABC-102");
+        var bus103 = vehicles.First(v => v.Placa == "ABC-103");
+
+        if (!await context.InspeccionesDiarias.AnyAsync(i => i.IdVehiculo == bus101.IdVehiculo && i.IdConductorUsuario == driver.IdUsuario))
         {
-            return type;
+            context.InspeccionesDiarias.Add(new InspeccionDiaria
+            {
+                IdVehiculo = bus101.IdVehiculo,
+                IdConductorUsuario = driver.IdUsuario,
+                FechaInspeccion = DateTime.UtcNow.AddDays(-1),
+                Kilometraje = 124500,
+                NivelCombustible = "ALTO",
+                LimpiezaCabina = true,
+                LimpiezaExterior = true,
+                LucesOperativas = true,
+                FrenosOperativos = true,
+                NeumaticosOperativos = true,
+                BocinaOperativa = true,
+                EspejosOperativos = true,
+                BotiquinDisponible = true,
+                ExtintorDisponible = true,
+                DocumentosCompletos = true,
+                Resultado = "APROBADO",
+                Observaciones = "Revision diaria sin observaciones."
+            });
         }
 
-        type = new TipoAlerta
+        if (!await context.InspeccionesDiarias.AnyAsync(i => i.IdVehiculo == bus102.IdVehiculo && i.Resultado == "OBSERVADO"))
         {
-            Codigo = codigo,
-            Nombre = nombre,
-            Descripcion = descripcion,
-            NivelSeveridad = severidad,
-            Activa = true
-        };
-        context.TiposAlerta.Add(type);
+            context.InspeccionesDiarias.Add(new InspeccionDiaria
+            {
+                IdVehiculo = bus102.IdVehiculo,
+                IdConductorUsuario = driver.IdUsuario,
+                FechaInspeccion = DateTime.UtcNow.AddHours(-6),
+                Kilometraje = 143210,
+                NivelCombustible = "MEDIO",
+                LimpiezaCabina = true,
+                LimpiezaExterior = true,
+                LucesOperativas = true,
+                FrenosOperativos = false,
+                NeumaticosOperativos = true,
+                BocinaOperativa = true,
+                EspejosOperativos = true,
+                BotiquinDisponible = true,
+                ExtintorDisponible = true,
+                DocumentosCompletos = true,
+                Resultado = "OBSERVADO",
+                Observaciones = "Se detecta respuesta irregular en freno posterior."
+            });
+        }
+
         await context.SaveChangesAsync();
-        return type;
+
+        var observedInspection = await context.InspeccionesDiarias
+            .Where(i => i.IdVehiculo == bus102.IdVehiculo)
+            .OrderByDescending(i => i.FechaInspeccion)
+            .FirstAsync();
+
+        var incident = await context.IncidenciasMantenimiento
+            .FirstOrDefaultAsync(i => i.Titulo == "Falla en sistema de frenos BUS-102");
+
+        if (incident == null)
+        {
+            incident = new IncidenciaMantenimiento
+            {
+                IdVehiculo = bus102.IdVehiculo,
+                IdReportadoPorUsuario = driver.IdUsuario,
+                IdInspeccionDiaria = observedInspection.IdInspeccionDiaria,
+                FechaReporte = DateTime.UtcNow.AddHours(-5),
+                TipoIncidencia = "MECANICA",
+                Severidad = "ALTA",
+                Titulo = "Falla en sistema de frenos BUS-102",
+                Descripcion = "Durante la inspeccion diaria se detecta frenado desigual en eje posterior.",
+                Estado = "EN_REPARACION",
+                RequiereParada = true,
+                UbicacionReferencia = "Patio principal"
+            };
+            context.IncidenciasMantenimiento.Add(incident);
+            await context.SaveChangesAsync();
+        }
+
+        var preventivePlan = await context.PlanesMantenimientoPreventivo
+            .FirstOrDefaultAsync(p => p.IdVehiculo == bus103.IdVehiculo);
+
+        if (preventivePlan == null)
+        {
+            preventivePlan = new PlanMantenimientoPreventivo
+            {
+                IdVehiculo = bus103.IdVehiculo,
+                IdCreadoPorUsuario = chief.IdUsuario,
+                FechaRegistro = DateTime.UtcNow.AddDays(-3),
+                ProximaFechaProgramada = DateTime.UtcNow.AddDays(2),
+                FrecuenciaDias = 30,
+                FrecuenciaKilometros = 10000,
+                Actividades = "Cambio de aceite, revision de filtros, verificacion electrica y ajuste de suspension.",
+                Estado = "PROGRAMADO",
+                Prioridad = "MEDIA",
+                Observaciones = "Preventivo mensual de rutina.",
+                UltimaEjecucion = DateTime.UtcNow.AddDays(-28)
+            };
+            context.PlanesMantenimientoPreventivo.Add(preventivePlan);
+            await context.SaveChangesAsync();
+        }
+
+        var correctiveOrder = await EnsureOrderAsync(
+            context,
+            "OT-202607-0001",
+            bus102.IdVehiculo,
+            chief.IdUsuario,
+            technician.IdUsuario,
+            null,
+            incident.IdIncidenciaMantenimiento,
+            "CORRECTIVO",
+            "ALTA",
+            DateTime.UtcNow.AddHours(-4),
+            "Diagnosticar y corregir falla reportada en sistema de frenos.",
+            "Orden generada por incidencia de conductor.",
+            "ASIGNADA");
+
+        var preventiveOrder = await EnsureOrderAsync(
+            context,
+            "OT-202607-0002",
+            bus103.IdVehiculo,
+            chief.IdUsuario,
+            technician.IdUsuario,
+            preventivePlan.IdPlanMantenimientoPreventivo,
+            null,
+            "PREVENTIVO",
+            "MEDIA",
+            DateTime.UtcNow.AddDays(2),
+            "Ejecutar mantenimiento preventivo mensual de BUS-103.",
+            "Orden creada desde plan preventivo.",
+            "GENERADA");
+
+        var completedOrder = await EnsureOrderAsync(
+            context,
+            "OT-202606-0098",
+            bus101.IdVehiculo,
+            admin.IdUsuario,
+            technician.IdUsuario,
+            null,
+            null,
+            "CORRECTIVO",
+            "MEDIA",
+            DateTime.UtcNow.AddDays(-4),
+            "Cambio de bateria y limpieza de terminales.",
+            "Orden historica de referencia.",
+            "FINALIZADA");
+
+        if (!await context.MantenimientosEjecutados.AnyAsync(m => m.IdOrdenTrabajo == completedOrder.IdOrdenTrabajo))
+        {
+            var maintenance = new MantenimientoEjecutado
+            {
+                IdOrdenTrabajo = completedOrder.IdOrdenTrabajo,
+                IdTecnicoUsuario = technician.IdUsuario,
+                FechaInicio = DateTime.UtcNow.AddDays(-4).AddHours(1),
+                FechaFin = DateTime.UtcNow.AddDays(-4).AddHours(3),
+                TipoMantenimiento = "CORRECTIVO",
+                Diagnostico = "Bateria sulfatada y terminales con desgaste.",
+                AccionesRealizadas = "Se reemplaza bateria, se limpian bornes y se verifica carga del alternador.",
+                Recomendaciones = "Controlar sistema electrico en proximo preventivo.",
+                EstadoResultado = "COMPLETADO",
+                NuevoEstadoOperativoVehiculo = "OPERATIVO"
+            };
+
+            context.MantenimientosEjecutados.Add(maintenance);
+            await context.SaveChangesAsync();
+
+            context.RepuestosUtilizados.Add(new RepuestoUtilizado
+            {
+                IdMantenimientoEjecutado = maintenance.IdMantenimientoEjecutado,
+                CodigoRepuesto = "BAT-24V-120A",
+                NombreRepuesto = "Bateria 24V 120A",
+                Cantidad = 1,
+                CostoUnitario = 850,
+                Observaciones = "Instalada con garantia de 12 meses."
+            });
+
+            bus101.FechaUltimoMantenimiento = maintenance.FechaFin;
+            bus101.EstadoOperativo = "OPERATIVO";
+            await context.SaveChangesAsync();
+        }
+
+        bus101.FechaUltimaInspeccion = await context.InspeccionesDiarias
+            .Where(i => i.IdVehiculo == bus101.IdVehiculo)
+            .MaxAsync(i => (DateTime?)i.FechaInspeccion);
+        bus102.FechaUltimaInspeccion = await context.InspeccionesDiarias
+            .Where(i => i.IdVehiculo == bus102.IdVehiculo)
+            .MaxAsync(i => (DateTime?)i.FechaInspeccion);
+        bus102.EstadoOperativo = "EN_MANTENIMIENTO";
+        bus102.ObservacionesMantenimiento = "Unidad inmovilizada por atencion correctiva en frenos.";
+        bus103.ObservacionesMantenimiento = "Preventivo pendiente segun calendario.";
+
+        if (correctiveOrder.Estado == "ASIGNADA")
+        {
+            bus102.ObservacionesMantenimiento = "Orden correctiva asignada al tecnico de mantenimiento.";
+        }
+
+        if (preventiveOrder.Estado == "GENERADA")
+        {
+            bus103.ObservacionesMantenimiento = "Orden preventiva generada y pendiente de ejecucion.";
+        }
+
+        await context.SaveChangesAsync();
     }
 
-    private static async Task<Paradero> FindOrCreateParaderoAsync(
+    private static async Task<OrdenTrabajo> EnsureOrderAsync(
         ApplicationDbContext context,
-        string nombre,
-        string referencia,
-        string distrito,
-        decimal latitud,
-        decimal longitud)
+        string numeroOrden,
+        int vehicleId,
+        int generatedByUserId,
+        int? technicianUserId,
+        int? preventivePlanId,
+        int? incidentId,
+        string orderType,
+        string priority,
+        DateTime scheduledDate,
+        string workRequested,
+        string? observations,
+        string status)
     {
-        var paradero = await context.Paraderos.FirstOrDefaultAsync(p =>
-            p.Nombre == nombre &&
-            p.Distrito == distrito);
-
-        if (paradero != null)
+        var order = await context.OrdenesTrabajo.FirstOrDefaultAsync(o => o.NumeroOrden == numeroOrden);
+        if (order == null)
         {
-            return paradero;
+            order = new OrdenTrabajo
+            {
+                NumeroOrden = numeroOrden,
+                IdVehiculo = vehicleId,
+                IdGeneradoPorUsuario = generatedByUserId,
+                IdTecnicoUsuario = technicianUserId,
+                IdPlanMantenimientoPreventivo = preventivePlanId,
+                IdIncidenciaMantenimiento = incidentId,
+                TipoOrden = orderType,
+                Prioridad = priority,
+                Estado = status,
+                FechaGeneracion = DateTime.UtcNow,
+                FechaProgramada = scheduledDate,
+                FechaAsignacion = technicianUserId.HasValue ? DateTime.UtcNow : null,
+                TrabajoSolicitado = workRequested,
+                Observaciones = observations
+            };
+            context.OrdenesTrabajo.Add(order);
+        }
+        else
+        {
+            order.IdVehiculo = vehicleId;
+            order.IdGeneradoPorUsuario = generatedByUserId;
+            order.IdTecnicoUsuario = technicianUserId;
+            order.IdPlanMantenimientoPreventivo = preventivePlanId;
+            order.IdIncidenciaMantenimiento = incidentId;
+            order.TipoOrden = orderType;
+            order.Prioridad = priority;
+            order.Estado = status;
+            order.FechaProgramada = scheduledDate;
+            order.FechaAsignacion = technicianUserId.HasValue ? order.FechaAsignacion ?? DateTime.UtcNow : null;
+            order.TrabajoSolicitado = workRequested;
+            order.Observaciones = observations;
         }
 
-        paradero = new Paradero
+        if (status == "FINALIZADA" && order.FechaInicio == null)
         {
-            Nombre = nombre,
-            DireccionReferencia = referencia,
-            Distrito = distrito,
-            Latitud = latitud,
-            Longitud = longitud,
-            Activo = true
-        };
-        context.Paraderos.Add(paradero);
+            order.FechaInicio = scheduledDate.AddHours(1);
+            order.FechaFin = scheduledDate.AddHours(3);
+        }
+
         await context.SaveChangesAsync();
-        return paradero;
+        return order;
+    }
+
+    private static string ComputeHash(string password)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+        var builder = new StringBuilder();
+        foreach (var b in bytes)
+        {
+            builder.Append(b.ToString("x2"));
+        }
+
+        return builder.ToString();
     }
 }

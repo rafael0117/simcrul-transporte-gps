@@ -1,0 +1,44 @@
+@model SIMCRUL.Common.DTOs.Maintenance.IncidentDto
+@{
+    ViewData["Title"] = "Registrar incidencia";
+    var vehicles = ViewBag.Vehicles as List<SIMCRUL.Common.DTOs.Maintenance.VehicleOptionDto> ?? [];
+}
+
+<form asp-action="Crear" method="post" class="form-card stack">
+    <div asp-validation-summary="ModelOnly"></div>
+    <div class="form-grid">
+        <div class="form-field">
+            <label asp-for="IdVehiculo"></label>
+            <select asp-for="IdVehiculo">
+                <option value="">Seleccione</option>
+                @foreach (var item in vehicles)
+                {
+                    <option value="@item.IdVehiculo">@item.Etiqueta</option>
+                }
+            </select>
+            <span asp-validation-for="IdVehiculo"></span>
+        </div>
+        <div class="form-field"><label asp-for="FechaReporte"></label><input asp-for="FechaReporte" type="datetime-local" /></div>
+        <div class="form-field">
+            <label asp-for="TipoIncidencia"></label>
+            <select asp-for="TipoIncidencia"><option>MECANICA</option><option>ELECTRICA</option><option>SEGURIDAD</option><option>OPERATIVA</option></select>
+        </div>
+        <div class="form-field">
+            <label asp-for="Severidad"></label>
+            <select asp-for="Severidad"><option>BAJA</option><option>MEDIA</option><option>ALTA</option><option>CRITICA</option></select>
+        </div>
+        <div class="form-field"><label asp-for="Titulo"></label><input asp-for="Titulo" /></div>
+        <div class="form-field"><label asp-for="UbicacionReferencia"></label><input asp-for="UbicacionReferencia" /></div>
+    </div>
+    <div class="form-field">
+        <label asp-for="Descripcion"></label>
+        <textarea asp-for="Descripcion"></textarea>
+    </div>
+    <label class="checkbox-card"><input asp-for="RequiereParada" /> La unidad debe salir de operacion inmediatamente</label>
+    <div class="page-actions">
+        <button type="submit">Registrar incidencia</button>
+        <a asp-action="Index" class="btn btn-light">Volver</a>
+    </div>
+</form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

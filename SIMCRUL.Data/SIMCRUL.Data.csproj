@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\SIMCRUL.Common\SIMCRUL.Common.csproj" />
     <ProjectReference Include="..\SIMCRUL.Entity\SIMCRUL.Entity.csproj" />
   </ItemGroup>
 

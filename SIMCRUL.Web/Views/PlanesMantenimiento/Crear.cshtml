@@ -1,0 +1,36 @@
+@model SIMCRUL.Common.DTOs.Maintenance.PreventivePlanDto
+@{
+    ViewData["Title"] = "Programar preventivo";
+    var vehicles = ViewBag.Vehicles as List<SIMCRUL.Common.DTOs.Maintenance.VehicleOptionDto> ?? [];
+}
+
+<form asp-action="Crear" method="post" class="form-card stack">
+    <div asp-validation-summary="ModelOnly"></div>
+    <div class="form-grid">
+        <div class="form-field">
+            <label asp-for="IdVehiculo"></label>
+            <select asp-for="IdVehiculo">
+                <option value="">Seleccione</option>
+                @foreach (var item in vehicles)
+                {
+                    <option value="@item.IdVehiculo">@item.Etiqueta</option>
+                }
+            </select>
+        </div>
+        <div class="form-field"><label asp-for="ProximaFechaProgramada"></label><input asp-for="ProximaFechaProgramada" type="datetime-local" /></div>
+        <div class="form-field"><label asp-for="FrecuenciaDias"></label><input asp-for="FrecuenciaDias" type="number" /></div>
+        <div class="form-field"><label asp-for="FrecuenciaKilometros"></label><input asp-for="FrecuenciaKilometros" type="number" step="0.01" /></div>
+        <div class="form-field">
+            <label asp-for="Prioridad"></label>
+            <select asp-for="Prioridad"><option>BAJA</option><option>MEDIA</option><option>ALTA</option></select>
+        </div>
+    </div>
+    <div class="form-field"><label asp-for="Actividades"></label><textarea asp-for="Actividades"></textarea></div>
+    <div class="form-field"><label asp-for="Observaciones"></label><textarea asp-for="Observaciones"></textarea></div>
+    <div class="page-actions">
+        <button type="submit">Guardar y generar orden</button>
+        <a asp-action="Index" class="btn btn-light">Volver</a>
+    </div>
+</form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

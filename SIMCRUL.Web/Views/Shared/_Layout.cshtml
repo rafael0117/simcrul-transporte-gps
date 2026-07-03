@@ -4,207 +4,158 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - SIMCRUL GPS</title>
+    <title>@ViewData["Title"] - SIMCRUL Mantenimiento</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
     @RenderSection("Styles", required: false)
 </head>
 @{
-    var sessionRole = Context.Session.GetString("Rol");
-    var hasToken = !string.IsNullOrWhiteSpace(Context.Session.GetString("Token"));
-    var isPassengerSession = SessionAuthHelper.IsPassengerAuthenticated(Context.Session);
-    var isDriverSession = SessionAuthHelper.IsDriverAuthenticated(Context.Session);
-    var isBackofficeSession = SessionAuthHelper.IsBackofficeAuthenticated(Context.Session);
     var hideChrome = ViewData["HideChrome"] is bool hideChromeValue && hideChromeValue;
-    var brandController = "Home";
-    var brandAction = "Index";
-    if (isBackofficeSession || isPassengerSession)
-    {
-        brandController = "Passenger";
-    }
-    else if (isDriverSession)
-    {
-        brandController = "Conductores";
-        brandAction = "Tracking";
-    }
-
+    var isAuthenticated = SessionAuthHelper.IsAuthenticated(Context.Session);
+    var isAdmin = SessionAuthHelper.IsAdminAuthenticated(Context.Session);
+    var isChief = SessionAuthHelper.IsChiefAuthenticated(Context.Session);
+    var isTechnician = SessionAuthHelper.IsTechnicianAuthenticated(Context.Session);
+    var isDriver = SessionAuthHelper.IsDriverAuthenticated(Context.Session);
+    var fullName = $"{Context.Session.GetString("Nombres")} {Context.Session.GetString("Apellidos")}".Trim();
+    var role = Context.Session.GetString("Rol") ?? "Invitado";
+    var username = Context.Session.GetString("Username") ?? string.Empty;
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
     var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
 
-    string NavLinkClass(string controller, string action)
+    string NavClass(string controller, string action = "Index")
     {
-        var isActive = string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase) &&
-                       string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase);
-
-        return isActive ? "sidebar-link active" : "sidebar-link";
+        return string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase)
+            ? "nav-link active"
+            : "nav-link";
     }
 }
-<body class="@(isBackofficeSession && !hideChrome ? "operator-shell" : "public-shell")">
+<body class="@(hideChrome ? "plain-shell" : "app-shell")">
     @if (hideChrome)
     {
-        <main role="main">
+        <main class="plain-main">
             @RenderBody()
         </main>
     }
-    else if (isBackofficeSession)
+    else
     {
-        <div class="app-shell">
-            <aside class="app-sidebar" id="appSidebar">
-                <div class="sidebar-header">
-                    <a class="brand" asp-area="" asp-controller="@brandController" asp-action="@brandAction">
-                        <i class="fa-solid fa-map-location-dot"></i> SIMCRUL
-                    </a>
-                    <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Cerrar menu">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
+        <div class="shell">
+            <aside class="sidebar">
+                <div class="sidebar-glow"></div>
+                <a asp-controller="Dashboard" asp-action="Index" class="brand-mark">
+                    <span class="brand-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+                    <span>
+                        <strong>SIMCRUL</strong>
+                        <small>Mantenimiento de Flota</small>
+                    </span>
+                </a>
+
+                <div class="sidebar-meta">
+                    <span class="meta-role">@role</span>
+                    <span class="meta-user">@fullName</span>
+                    @if (!string.IsNullOrWhiteSpace(username))
+                    {
+                        <span class="meta-username">@username</span>
+                    }
                 </div>
 
-                <div class="sidebar-panel">
-                    <div class="sidebar-meta">
-                        <span class="sidebar-label">Navegacion</span>
-                        <span class="sidebar-role">@sessionRole</span>
-                    </div>
+                <nav class="sidebar-nav">
+                    @if (isAuthenticated)
+                    {
+                        <a asp-controller="Dashboard" asp-action="Index" class="@NavClass("Dashboard")">
+                            <i class="fa-solid fa-house"></i> Dashboard
+                        </a>
+                    }
 
-                    <nav aria-label="Menu principal">
-                        <ul class="sidebar-nav">
-                            <li>
-                                <a asp-controller="Passenger" asp-action="Index" class="@NavLinkClass("Passenger", "Index")">
-                                    <i class="fa-solid fa-tower-broadcast"></i>
-                                    <span>Telemetria en Tiempo Real</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a asp-controller="Dashboard" asp-action="Estadisticas" class="@NavLinkClass("Dashboard", "Estadisticas")">
-                                    <i class="fa-solid fa-chart-line"></i>
-                                    <span>Estadisticas</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a asp-controller="Vehiculos" asp-action="Index" class="@NavLinkClass("Vehiculos", "Index")">
-                                    <i class="fa-solid fa-bus"></i>
-                                    <span>Vehiculos</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a asp-controller="Conductores" asp-action="Index" class="@NavLinkClass("Conductores", "Index")">
-                                    <i class="fa-solid fa-id-card"></i>
-                                    <span>Conductores</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a asp-controller="Usuarios" asp-action="Index" class="@NavLinkClass("Usuarios", "Index")">
-                                    <i class="fa-solid fa-users-gear"></i>
-                                    <span>Usuarios</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a asp-controller="Rutas" asp-action="Index" class="@NavLinkClass("Rutas", "Index")">
-                                    <i class="fa-solid fa-route"></i>
-                                    <span>Rutas</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a asp-controller="Paraderos" asp-action="Index" class="@NavLinkClass("Paraderos", "Index")">
-                                    <i class="fa-solid fa-signs-post"></i>
-                                    <span>Paraderos</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </nav>
-                </div>
+                    @if (isAdmin)
+                    {
+                        <a asp-controller="Vehiculos" asp-action="Index" class="@NavClass("Vehiculos")">
+                            <i class="fa-solid fa-bus"></i> Vehiculos
+                        </a>
+                    }
+
+                    @if (isChief)
+                    {
+                        <a asp-controller="PlanesMantenimiento" asp-action="Index" class="@NavClass("PlanesMantenimiento")">
+                            <i class="fa-solid fa-calendar-check"></i> Preventivos
+                        </a>
+                    }
+
+                    @if (isChief || isTechnician || isAdmin)
+                    {
+                        <a asp-controller="OrdenesTrabajo" asp-action="Index" class="@NavClass("OrdenesTrabajo")">
+                            <i class="fa-solid fa-clipboard-list"></i> Ordenes
+                        </a>
+                    }
+
+                    @if (isDriver)
+                    {
+                        <a asp-controller="Inspecciones" asp-action="Index" class="@NavClass("Inspecciones")">
+                            <i class="fa-solid fa-list-check"></i> Inspecciones
+                        </a>
+                    }
+
+                    @if (isAuthenticated)
+                    {
+                        <a asp-controller="Incidencias" asp-action="Index" class="@NavClass("Incidencias")">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Incidencias
+                        </a>
+                    }
+
+                    @if (SessionAuthHelper.CanViewHistory(Context.Session))
+                    {
+                        <a asp-controller="Historial" asp-action="Index" class="@NavClass("Historial")">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Historial
+                        </a>
+                    }
+
+                    @if (SessionAuthHelper.CanViewStats(Context.Session))
+                    {
+                        <a asp-controller="Estadisticas" asp-action="Index" class="@NavClass("Estadisticas")">
+                            <i class="fa-solid fa-chart-column"></i> Estadisticas
+                        </a>
+                    }
+                </nav>
 
                 <div class="sidebar-footer">
-                    <a asp-controller="Home" asp-action="Logout" class="btn-primary sidebar-logout">
-                        <i class="fa-solid fa-right-from-bracket"></i>
-                        <span>Cerrar Sesion</span>
+                    <a asp-controller="Home" asp-action="Logout" class="ghost-link">
+                        <i class="fa-solid fa-right-from-bracket"></i> Cerrar sesion
                     </a>
                 </div>
             </aside>
 
-            <div class="app-sidebar-overlay" id="sidebarOverlay"></div>
-
-            <div class="app-main">
-                <header class="custom-nav">
-                    <div class="nav-container">
-                        <div class="topbar-start">
-                            <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Abrir menu">
-                                <i class="fa-solid fa-bars"></i>
-                            </button>
-                            <a class="brand topbar-brand" asp-area="" asp-controller="@brandController" asp-action="@brandAction">
-                                <i class="fa-solid fa-map-location-dot"></i> SIMCRUL
-                            </a>
-                        </div>
-                        <div class="topbar-status">
-                            <span class="topbar-pill">Panel de Administracion</span>
-                        </div>
+            <div class="content-area">
+                <header class="topbar">
+                    <div class="topbar-copy">
+                        <span class="topbar-kicker">Centro de control</span>
+                        <h1>@(ViewData["Title"] ?? "SIMCRUL Mantenimiento")</h1>
+                        <p>Control de flota, inspecciones, incidencias y mantenimiento.</p>
+                    </div>
+                    <div class="topbar-badge">
+                        <span>@role</span>
                     </div>
                 </header>
 
-                <main role="main" class="app-content">
+                <main class="page-body">
+                    @if (TempData["SuccessMessage"] is string successMessage)
+                    {
+                        <div class="alert success">@successMessage</div>
+                    }
+
+                    @if (TempData["ErrorMessage"] is string errorMessage)
+                    {
+                        <div class="alert error">@errorMessage</div>
+                    }
+
                     @RenderBody()
                 </main>
             </div>
         </div>
     }
-    else
-    {
-        <header class="custom-nav public-nav">
-            <div class="nav-container">
-                <a class="brand" asp-area="" asp-controller="@brandController" asp-action="@brandAction">
-                    <i class="fa-solid fa-map-location-dot"></i> SIMCRUL
-                </a>
-                <ul class="nav-links">
-                    @if (isPassengerSession)
-                    {
-                        <li><a asp-controller="Passenger" asp-action="Index">Telemetria en Tiempo Real</a></li>
-                        <li><a asp-controller="Passenger" asp-action="Requests">Mis Solicitudes</a></li>
-                        <li><a asp-controller="Passenger" asp-action="DownloadRoutesPdf">Catalogo PDF</a></li>
-                        <li><a asp-controller="Passenger" asp-action="Logout" class="btn-primary public-nav-cta" style="background: var(--danger);">Cerrar Sesion</a></li>
-                    }
-                    else if (isDriverSession)
-                    {
-                        <li><a asp-controller="Conductores" asp-action="Tracking">Modo Conductor</a></li>
-                        <li><a asp-controller="Home" asp-action="Logout" class="btn-primary public-nav-cta" style="background: var(--danger);">Cerrar Sesion</a></li>
-                    }
-                    else
-                    {
-                        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
-                        <li><a asp-controller="Passenger" asp-action="Index">Telemetria en Tiempo Real</a></li>
-                        <li><a asp-controller="Passenger" asp-action="Register">Registro Pasajero</a></li>
-                        <li><a asp-controller="Home" asp-action="Login" class="btn-primary public-nav-cta">Ingresar</a></li>
-                    }
-                </ul>
-            </div>
-        </header>
-
-        <main role="main">
-            @RenderBody()
-        </main>
-    }
 
     @RenderSection("Scripts", required: false)
-    <script>
-        (() => {
-            const body = document.body;
-            const sidebarToggle = document.getElementById('sidebarToggle');
-            const sidebarClose = document.getElementById('sidebarClose');
-            const sidebarOverlay = document.getElementById('sidebarOverlay');
-
-            const closeSidebar = () => body.classList.remove('sidebar-open');
-            const openSidebar = () => body.classList.add('sidebar-open');
-
-            sidebarToggle?.addEventListener('click', openSidebar);
-            sidebarClose?.addEventListener('click', closeSidebar);
-            sidebarOverlay?.addEventListener('click', closeSidebar);
-
-            window.addEventListener('resize', () => {
-                if (window.innerWidth > 1024) {
-                    closeSidebar();
-                }
-            });
-        })();
-    </script>
 </body>
 </html>

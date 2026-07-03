@@ -1,0 +1,29 @@
+@model List<SIMCRUL.Common.DTOs.Maintenance.InspectionDto>
+@{
+    ViewData["Title"] = "Inspecciones";
+}
+
+<section class="page-actions">
+    <a asp-action="Crear" class="btn btn-primary">Nueva inspeccion</a>
+</section>
+
+<section class="table-card">
+    <table>
+        <thead>
+            <tr><th>Fecha</th><th>Vehiculo</th><th>Resultado</th><th>Combustible</th><th>Kilometraje</th><th>Observaciones</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.FechaInspeccion.ToString("dd/MM/yyyy HH:mm")</td>
+                <td>@item.NombreVehiculo</td>
+                <td><span class="chip @(item.Resultado == "RECHAZADO" ? "danger" : item.Resultado == "OBSERVADO" ? "warn" : "")">@item.Resultado</span></td>
+                <td>@item.NivelCombustible</td>
+                <td>@item.Kilometraje.ToString("N0") km</td>
+                <td>@item.Observaciones</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>

@@ -1,0 +1,47 @@
+@model List<SIMCRUL.Common.DTOs.Maintenance.WorkOrderDto>
+@using SIMCRUL.Web.Infrastructure
+@{
+    ViewData["Title"] = "Ordenes de trabajo";
+}
+
+<section class="page-actions">
+    @if (SessionAuthHelper.IsChiefAuthenticated(Context.Session) || SessionAuthHelper.IsAdminAuthenticated(Context.Session))
+    {
+        <a asp-action="Crear" class="btn btn-primary">Nueva orden</a>
+    }
+</section>
+
+<section class="table-card">
+    <table>
+        <thead>
+            <tr><th>Orden</th><th>Vehiculo</th><th>Tipo</th><th>Prioridad</th><th>Estado</th><th>Tecnico</th><th>Programada</th><th>Trabajo</th><th></th></tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.NumeroOrden</td>
+                <td>@item.NombreVehiculo</td>
+                <td>@item.TipoOrden</td>
+                <td>@item.Prioridad</td>
+                <td><span class="chip @(item.Estado == "FINALIZADA" ? "" : "warn")">@item.Estado</span></td>
+                <td>@(item.NombreTecnico ?? "Sin tecnico")</td>
+                <td>@item.FechaProgramada.ToString("dd/MM/yyyy HH:mm")</td>
+                <td>@item.TrabajoSolicitado</td>
+                <td>
+                    <div class="inline-actions">
+                        @if (SessionAuthHelper.IsChiefAuthenticated(Context.Session) && item.Estado != "FINALIZADA")
+                        {
+                            <a asp-action="Asignar" asp-route-id="@item.IdOrdenTrabajo" class="btn btn-light">Asignar</a>
+                        }
+                        @if (SessionAuthHelper.CanExecuteOrders(Context.Session) && item.Estado != "FINALIZADA")
+                        {
+                            <a asp-action="Ejecutar" asp-route-id="@item.IdOrdenTrabajo" class="btn btn-secondary">Ejecutar</a>
+                        }
+                    </div>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>

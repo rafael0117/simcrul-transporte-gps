@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SIMCRUL.Common.DTOs.Maintenance;
 using SIMCRUL.Web.Infrastructure;
 using SIMCRUL.Web.Services;
 
@@ -13,64 +14,18 @@ public class DashboardController : Controller
         _apiClient = apiClient;
     }
 
-    private bool IsAuthorized()
+    public async Task<IActionResult> Index()
     {
-        return SessionAuthHelper.IsOperatorAuthenticated(HttpContext.Session);
-    }
-
-    private IActionResult RedirectUnauthorized()
-    {
-        if (SessionAuthHelper.IsPassengerAuthenticated(HttpContext.Session))
+        if (!SessionAuthHelper.IsAuthenticated(HttpContext.Session))
         {
-            return RedirectToAction("Index", "Passenger");
+            return RedirectToAction("Login", "Home");
         }
 
-        return RedirectToAction("Login", "Home");
-    }
+        var summary = await _apiClient.GetAsync<MaintenanceDashboardDto>("maintenance/dashboard/summary")
+                      ?? new MaintenanceDashboardDto();
 
-    public IActionResult Index()
-    {
-        if (!IsAuthorized()) return RedirectUnauthorized();
-        return RedirectToAction("Index", "Passenger");
-    }
-
-    public IActionResult Simulator()
-    {
-        if (!IsAuthorized()) return RedirectUnauthorized();
-        return View();
-    }
-
-    public IActionResult Estadisticas()
-    {
-        if (!IsAuthorized()) return RedirectUnauthorized();
-        return View();
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> DownloadPdf(DateTime? dateFrom, DateTime? dateTo)
-    {
-        if (!IsAuthorized()) return RedirectUnauthorized();
-
-        var fromStr = dateFrom?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd");
-        var toStr = dateTo?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd");
-
-        var bytes = await _apiClient.GetBytesAsync($"Report/alerts-pdf?dateFrom={fromStr}&dateTo={toStr}");
-        if (bytes == null) return NotFound("No se pudo generar el reporte PDF.");
-
-        return File(bytes, "application/pdf", $"ReporteAlertas_{fromStr}_{toStr}.pdf");
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> DownloadExcel(DateTime? dateFrom, DateTime? dateTo)
-    {
-        if (!IsAuthorized()) return RedirectUnauthorized();
-
-        var fromStr = dateFrom?.ToString("yyyy-MM-dd") ?? DateTime.Today.AddDays(-7).ToString("yyyy-MM-dd");
-        var toStr = dateTo?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd");
-
-        var bytes = await _apiClient.GetBytesAsync($"Report/trips-excel?dateFrom={fromStr}&dateTo={toStr}");
-        if (bytes == null) return NotFound("No se pudo generar el reporte Excel.");
-
-        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"ReporteViajes_{fromStr}_{toStr}.xlsx");
+        ViewBag.UserRole = HttpContext.Session.GetString("Rol");
+        ViewBag.DisplayName = $"{HttpContext.Session.GetString("Nombres")} {HttpContext.Session.GetString("Apellidos")}".Trim();
+        return View(summary);
     }
 }

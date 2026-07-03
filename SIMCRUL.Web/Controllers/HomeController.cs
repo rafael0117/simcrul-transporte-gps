@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using SIMCRUL.Common.Constants;
 using SIMCRUL.Common.DTOs.Auth;
 using SIMCRUL.Web.Infrastructure;
 using SIMCRUL.Web.Services;
@@ -19,44 +18,26 @@ public class HomeController : Controller
 
     public IActionResult Index()
     {
-        if (SessionAuthHelper.IsBackofficeAuthenticated(HttpContext.Session))
+        if (SessionAuthHelper.IsAuthenticated(HttpContext.Session))
         {
-            return RedirectToAction("Index", "Passenger");
+            return RedirectToAction("Index", "Dashboard");
         }
 
-        if (SessionAuthHelper.IsPassengerAuthenticated(HttpContext.Session))
-        {
-            return RedirectToAction("Index", "Passenger");
-        }
-
-        if (SessionAuthHelper.IsDriverAuthenticated(HttpContext.Session))
-        {
-            return RedirectToAction("Tracking", "Conductores");
-        }
-
+        ViewData["HideChrome"] = true;
         return View();
     }
 
     [HttpGet]
     public IActionResult Login()
     {
-        if (SessionAuthHelper.IsBackofficeAuthenticated(HttpContext.Session))
+        if (SessionAuthHelper.IsAuthenticated(HttpContext.Session))
         {
-            return RedirectToAction("Index", "Passenger");
+            return RedirectToAction("Index", "Dashboard");
         }
 
-        if (SessionAuthHelper.IsPassengerAuthenticated(HttpContext.Session))
-        {
-            return RedirectToAction("Index", "Passenger");
-        }
-
-        if (SessionAuthHelper.IsDriverAuthenticated(HttpContext.Session))
-        {
-            return RedirectToAction("Tracking", "Conductores");
-        }
-
+        ViewData["HideChrome"] = true;
         PopulateRecaptchaViewBag();
-        return View();
+        return View(new LoginRequestDto());
     }
 
     [HttpPost]
@@ -64,6 +45,7 @@ public class HomeController : Controller
     {
         if (!ModelState.IsValid)
         {
+            ViewData["HideChrome"] = true;
             PopulateRecaptchaViewBag();
             return View(request);
         }
@@ -71,34 +53,26 @@ public class HomeController : Controller
         try
         {
             var response = await _apiClient.PostAsync<LoginRequestDto, AuthResponseDto>("Auth/login", request);
-            if (response != null && !string.IsNullOrEmpty(response.Token))
+            if (response == null || string.IsNullOrWhiteSpace(response.Token))
             {
-                HttpContext.Session.SetString("Token", response.Token);
-                HttpContext.Session.SetString("Rol", response.Rol);
-                HttpContext.Session.SetString("Username", response.Username);
-                HttpContext.Session.SetString("Nombres", response.Nombres);
-                HttpContext.Session.SetString("Apellidos", response.Apellidos);
-
-                if (string.Equals(response.Rol, Roles.Pasajero, StringComparison.OrdinalIgnoreCase))
-                {
-                    return RedirectToAction("Index", "Passenger");
-                }
-
-                if (string.Equals(response.Rol, Roles.Conductor, StringComparison.OrdinalIgnoreCase))
-                {
-                    return RedirectToAction("Tracking", "Conductores");
-                }
-
-                return RedirectToAction("Index", "Passenger");
+                ModelState.AddModelError(string.Empty, "No se recibio una respuesta valida del servidor.");
+                ViewData["HideChrome"] = true;
+                PopulateRecaptchaViewBag();
+                return View(request);
             }
 
-            ModelState.AddModelError("", "Respuesta invalida del servidor.");
-            PopulateRecaptchaViewBag();
-            return View(request);
+            HttpContext.Session.SetString("Token", response.Token);
+            HttpContext.Session.SetString("Rol", response.Rol);
+            HttpContext.Session.SetString("Username", response.Username);
+            HttpContext.Session.SetString("Nombres", response.Nombres);
+            HttpContext.Session.SetString("Apellidos", response.Apellidos);
+
+            return RedirectToAction("Index", "Dashboard");
         }
         catch (Exception ex)
         {
-            ModelState.AddModelError("", $"Error al iniciar sesion: {ex.Message}");
+            ModelState.AddModelError(string.Empty, $"No se pudo iniciar sesion: {ex.Message}");
+            ViewData["HideChrome"] = true;
             PopulateRecaptchaViewBag();
             return View(request);
         }
@@ -107,7 +81,7 @@ public class HomeController : Controller
     public IActionResult Logout()
     {
         HttpContext.Session.Clear();
-        return RedirectToAction("Index", "Home");
+        return RedirectToAction(nameof(Login));
     }
 
     private void PopulateRecaptchaViewBag()

@@ -2,11 +2,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using SIMCRUL.Business.Hubs;
 using SIMCRUL.Business.Interfaces;
 using SIMCRUL.Business.Security;
 using SIMCRUL.Business.Services;
-using SIMCRUL.API.Services;
 using SIMCRUL.Data.Context;
 using SIMCRUL.Data.Initialization;
 using System.Text;
@@ -65,13 +63,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddHttpClient<IRecaptchaService, GoogleRecaptchaService>();
-builder.Services.AddScoped<IGpsProcessingService, GpsProcessingService>();
-builder.Services.AddScoped<IReportService, ReportService>();
-builder.Services.AddSingleton<IFleetSimulationService, FleetSimulationService>();
-builder.Services.AddHostedService<SimulationStartupService>();
 
 // 5. Real-Time and Web APIs
-builder.Services.AddSignalR();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -86,7 +79,7 @@ builder.Services.AddSwaggerGen(options =>
     { 
         Title = "SIMCRUL API", 
         Version = "v1",
-        Description = "Backend de Monitoreo GPS y Control de Rutas Urbanas."
+        Description = "Backend de gestion de mantenimiento preventivo y correctivo de flota."
     });
     
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -145,6 +138,5 @@ app.UseAuthorization();
 
 // Route endpoints
 app.MapControllers();
-app.MapHub<GpsHub>("/gpsHub");
 
 app.Run();

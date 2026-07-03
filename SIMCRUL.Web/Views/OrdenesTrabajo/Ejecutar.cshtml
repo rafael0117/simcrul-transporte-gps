@@ -1,0 +1,58 @@
+@model SIMCRUL.Common.DTOs.Maintenance.MaintenanceExecutionDto
+@{
+    ViewData["Title"] = "Ejecutar mantenimiento";
+    var repuestos = Model.Repuestos.ToList();
+    while (repuestos.Count < 3)
+    {
+        repuestos.Add(new SIMCRUL.Common.DTOs.Maintenance.SparePartDto());
+    }
+}
+
+<form asp-action="Ejecutar" method="post" class="form-card stack">
+    <input asp-for="IdOrdenTrabajo" type="hidden" />
+    <div asp-validation-summary="ModelOnly"></div>
+    <div class="form-grid">
+        <div class="form-field"><label asp-for="FechaInicio"></label><input asp-for="FechaInicio" type="datetime-local" /></div>
+        <div class="form-field"><label asp-for="FechaFin"></label><input asp-for="FechaFin" type="datetime-local" /></div>
+        <div class="form-field">
+            <label asp-for="TipoMantenimiento"></label>
+            <select asp-for="TipoMantenimiento"><option>CORRECTIVO</option><option>PREVENTIVO</option></select>
+        </div>
+        <div class="form-field">
+            <label asp-for="EstadoResultado"></label>
+            <select asp-for="EstadoResultado"><option>COMPLETADO</option><option>PENDIENTE</option><option>DERIVADO</option></select>
+        </div>
+        <div class="form-field">
+            <label asp-for="NuevoEstadoOperativoVehiculo"></label>
+            <select asp-for="NuevoEstadoOperativoVehiculo"><option>OPERATIVO</option><option>EN_MANTENIMIENTO</option><option>FUERA_DE_SERVICIO</option></select>
+        </div>
+    </div>
+    <div class="form-field"><label asp-for="Diagnostico"></label><textarea asp-for="Diagnostico"></textarea></div>
+    <div class="form-field"><label asp-for="AccionesRealizadas"></label><textarea asp-for="AccionesRealizadas"></textarea></div>
+    <div class="form-field"><label asp-for="Recomendaciones"></label><textarea asp-for="Recomendaciones"></textarea></div>
+
+    <div class="table-card">
+        <h3>Repuestos utilizados</h3>
+        <table>
+            <thead><tr><th>Codigo</th><th>Nombre</th><th>Cantidad</th><th>Costo unitario</th><th>Observaciones</th></tr></thead>
+            <tbody>
+            @for (var i = 0; i < repuestos.Count; i++)
+            {
+                <tr>
+                    <td><input name="Repuestos[@i].CodigoRepuesto" value="@repuestos[i].CodigoRepuesto" /></td>
+                    <td><input name="Repuestos[@i].NombreRepuesto" value="@repuestos[i].NombreRepuesto" /></td>
+                    <td><input name="Repuestos[@i].Cantidad" type="number" step="0.01" value="@repuestos[i].Cantidad" /></td>
+                    <td><input name="Repuestos[@i].CostoUnitario" type="number" step="0.01" value="@repuestos[i].CostoUnitario" /></td>
+                    <td><input name="Repuestos[@i].Observaciones" value="@repuestos[i].Observaciones" /></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="page-actions">
+        <button type="submit">Registrar mantenimiento</button>
+        <a asp-action="Index" class="btn btn-light">Volver</a>
+    </div>
+</form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

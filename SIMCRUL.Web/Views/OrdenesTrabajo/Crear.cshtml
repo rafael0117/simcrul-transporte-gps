@@ -1,0 +1,61 @@
+@model SIMCRUL.Common.DTOs.Maintenance.WorkOrderDto
+@{
+    ViewData["Title"] = "Crear orden de trabajo";
+    var vehicles = ViewBag.Vehicles as List<SIMCRUL.Common.DTOs.Maintenance.VehicleOptionDto> ?? [];
+    var technicians = ViewBag.Technicians as List<SIMCRUL.Common.DTOs.Maintenance.UserOptionDto> ?? [];
+    var incidents = ViewBag.Incidents as List<SIMCRUL.Common.DTOs.Maintenance.IncidentDto> ?? [];
+}
+
+<form asp-action="Crear" method="post" class="form-card stack">
+    <div asp-validation-summary="ModelOnly"></div>
+    <div class="form-grid">
+        <div class="form-field">
+            <label asp-for="IdVehiculo"></label>
+            <select asp-for="IdVehiculo">
+                <option value="">Seleccione</option>
+                @foreach (var item in vehicles)
+                {
+                    <option value="@item.IdVehiculo">@item.Etiqueta</option>
+                }
+            </select>
+        </div>
+        <div class="form-field">
+            <label asp-for="TipoOrden"></label>
+            <select asp-for="TipoOrden"><option>CORRECTIVO</option><option>PREVENTIVO</option></select>
+        </div>
+        <div class="form-field">
+            <label asp-for="Prioridad"></label>
+            <select asp-for="Prioridad"><option>BAJA</option><option>MEDIA</option><option>ALTA</option><option>CRITICA</option></select>
+        </div>
+        <div class="form-field"><label asp-for="FechaProgramada"></label><input asp-for="FechaProgramada" type="datetime-local" /></div>
+        <div class="form-field">
+            <label asp-for="IdTecnicoUsuario"></label>
+            <select asp-for="IdTecnicoUsuario">
+                <option value="">Sin asignar</option>
+                @foreach (var item in technicians)
+                {
+                    <option value="@item.IdUsuario">@item.NombreCompleto</option>
+                }
+            </select>
+        </div>
+        <div class="form-field">
+            <label asp-for="IdIncidenciaMantenimiento"></label>
+            <select asp-for="IdIncidenciaMantenimiento">
+                <option value="">Sin incidencia asociada</option>
+                @foreach (var item in incidents)
+                {
+                    <option value="@item.IdIncidenciaMantenimiento">@item.Titulo (@item.NombreVehiculo)</option>
+                }
+            </select>
+        </div>
+    </div>
+    <div class="form-field"><label asp-for="TrabajoSolicitado"></label><textarea asp-for="TrabajoSolicitado"></textarea></div>
+    <div class="form-field"><label asp-for="DiagnosticoInicial"></label><textarea asp-for="DiagnosticoInicial"></textarea></div>
+    <div class="form-field"><label asp-for="Observaciones"></label><textarea asp-for="Observaciones"></textarea></div>
+    <div class="page-actions">
+        <button type="submit">Guardar orden</button>
+        <a asp-action="Index" class="btn btn-light">Volver</a>
+    </div>
+</form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

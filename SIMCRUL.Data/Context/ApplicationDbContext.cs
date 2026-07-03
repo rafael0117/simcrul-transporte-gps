@@ -47,6 +47,12 @@ public class ApplicationDbContext : DbContext
     public DbSet<Auditoria> Auditorias => Set<Auditoria>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<SolicitudPasajero> SolicitudesPasajero => Set<SolicitudPasajero>();
+    public DbSet<InspeccionDiaria> InspeccionesDiarias => Set<InspeccionDiaria>();
+    public DbSet<IncidenciaMantenimiento> IncidenciasMantenimiento => Set<IncidenciaMantenimiento>();
+    public DbSet<PlanMantenimientoPreventivo> PlanesMantenimientoPreventivo => Set<PlanMantenimientoPreventivo>();
+    public DbSet<OrdenTrabajo> OrdenesTrabajo => Set<OrdenTrabajo>();
+    public DbSet<MantenimientoEjecutado> MantenimientosEjecutados => Set<MantenimientoEjecutado>();
+    public DbSet<RepuestoUtilizado> RepuestosUtilizados => Set<RepuestoUtilizado>();
 
     // Vistas keyless
     public DbSet<VwAlertaPendiente> VwAlertasPendientes => Set<VwAlertaPendiente>();
@@ -75,6 +81,12 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Auditoria>().ToTable("AUDITORIA").HasKey(x => x.IdAuditoria);
         modelBuilder.Entity<PasswordResetToken>().ToTable("PASSWORD_RESET_TOKENS").HasKey(x => x.IdPasswordResetToken);
         modelBuilder.Entity<SolicitudPasajero>().ToTable("SOLICITUDES_PASAJERO").HasKey(x => x.IdSolicitudPasajero);
+        modelBuilder.Entity<InspeccionDiaria>().ToTable("INSPECCIONES_DIARIAS").HasKey(x => x.IdInspeccionDiaria);
+        modelBuilder.Entity<IncidenciaMantenimiento>().ToTable("INCIDENCIAS_MANTENIMIENTO").HasKey(x => x.IdIncidenciaMantenimiento);
+        modelBuilder.Entity<PlanMantenimientoPreventivo>().ToTable("PLANES_MANTENIMIENTO_PREVENTIVO").HasKey(x => x.IdPlanMantenimientoPreventivo);
+        modelBuilder.Entity<OrdenTrabajo>().ToTable("ORDENES_TRABAJO").HasKey(x => x.IdOrdenTrabajo);
+        modelBuilder.Entity<MantenimientoEjecutado>().ToTable("MANTENIMIENTOS_EJECUTADOS").HasKey(x => x.IdMantenimientoEjecutado);
+        modelBuilder.Entity<RepuestoUtilizado>().ToTable("REPUESTOS_UTILIZADOS").HasKey(x => x.IdRepuestoUtilizado);
 
         // Vistas mapeadas
         modelBuilder.Entity<VwAlertaPendiente>().ToView("vw_AlertasPendientes").HasNoKey();
@@ -121,6 +133,10 @@ public class ApplicationDbContext : DbContext
             .WithMany(e => e.Vehiculos)
             .HasForeignKey(v => v.IdEmpresa)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Vehiculo>()
+            .Property(v => v.EstadoOperativo)
+            .HasMaxLength(30);
 
         modelBuilder.Entity<DispositivoGps>()
             .HasOne(d => d.Vehiculo)
@@ -247,6 +263,100 @@ public class ApplicationDbContext : DbContext
             .WithMany()
             .HasForeignKey(sp => sp.IdRuta)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<InspeccionDiaria>()
+            .HasOne(i => i.Vehiculo)
+            .WithMany(v => v.InspeccionesDiarias)
+            .HasForeignKey(i => i.IdVehiculo)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<InspeccionDiaria>()
+            .HasOne(i => i.ConductorUsuario)
+            .WithMany()
+            .HasForeignKey(i => i.IdConductorUsuario)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<IncidenciaMantenimiento>()
+            .HasOne(i => i.Vehiculo)
+            .WithMany(v => v.IncidenciasMantenimiento)
+            .HasForeignKey(i => i.IdVehiculo)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<IncidenciaMantenimiento>()
+            .HasOne(i => i.ReportadoPorUsuario)
+            .WithMany()
+            .HasForeignKey(i => i.IdReportadoPorUsuario)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<IncidenciaMantenimiento>()
+            .HasOne(i => i.InspeccionDiaria)
+            .WithMany()
+            .HasForeignKey(i => i.IdInspeccionDiaria)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<PlanMantenimientoPreventivo>()
+            .HasOne(p => p.Vehiculo)
+            .WithMany(v => v.PlanesMantenimientoPreventivo)
+            .HasForeignKey(p => p.IdVehiculo)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PlanMantenimientoPreventivo>()
+            .HasOne(p => p.CreadoPorUsuario)
+            .WithMany()
+            .HasForeignKey(p => p.IdCreadoPorUsuario)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<OrdenTrabajo>()
+            .HasIndex(o => o.NumeroOrden)
+            .IsUnique();
+
+        modelBuilder.Entity<OrdenTrabajo>()
+            .HasOne(o => o.Vehiculo)
+            .WithMany(v => v.OrdenesTrabajo)
+            .HasForeignKey(o => o.IdVehiculo)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<OrdenTrabajo>()
+            .HasOne(o => o.GeneradoPorUsuario)
+            .WithMany()
+            .HasForeignKey(o => o.IdGeneradoPorUsuario)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<OrdenTrabajo>()
+            .HasOne(o => o.TecnicoUsuario)
+            .WithMany()
+            .HasForeignKey(o => o.IdTecnicoUsuario)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<OrdenTrabajo>()
+            .HasOne(o => o.PlanMantenimientoPreventivo)
+            .WithMany(p => p.OrdenesTrabajo)
+            .HasForeignKey(o => o.IdPlanMantenimientoPreventivo)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<OrdenTrabajo>()
+            .HasOne(o => o.IncidenciaMantenimiento)
+            .WithMany(i => i.OrdenesTrabajo)
+            .HasForeignKey(o => o.IdIncidenciaMantenimiento)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<MantenimientoEjecutado>()
+            .HasOne(m => m.OrdenTrabajo)
+            .WithMany(o => o.MantenimientosEjecutados)
+            .HasForeignKey(m => m.IdOrdenTrabajo)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<MantenimientoEjecutado>()
+            .HasOne(m => m.TecnicoUsuario)
+            .WithMany()
+            .HasForeignKey(m => m.IdTecnicoUsuario)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<RepuestoUtilizado>()
+            .HasOne(r => r.MantenimientoEjecutado)
+            .WithMany(m => m.RepuestosUtilizados)
+            .HasForeignKey(r => r.IdMantenimientoEjecutado)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 
     private static string ToSnakeCase(string input)
