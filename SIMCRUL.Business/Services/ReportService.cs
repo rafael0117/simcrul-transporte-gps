@@ -230,6 +230,170 @@ public class ReportService : IReportService
         return stream.ToArray();
     }
 
+    public async Task<byte[]> GenerateDriversExcelReportAsync(CancellationToken cancellationToken = default)
+    {
+        var drivers = await _context.Conductores
+            .Include(c => c.EmpresaTransporte)
+            .Include(c => c.Usuario)
+            .OrderBy(c => c.Apellidos)
+            .ThenBy(c => c.Nombres)
+            .ToListAsync(cancellationToken);
+
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Conductores");
+
+        ApplyMetafinHeader(ws, "Reporte : Conductores", "CONDUCTORES", 10);
+
+        string[] headers =
+        {
+            "EMPRESA", "NOMBRES", "APELLIDOS", "DNI", "NRO. LICENCIA",
+            "CATEGORIA", "VENCIMIENTO LICENCIA", "TELEFONO", "USUARIO", "ESTADO"
+        };
+
+        ApplyTableHeader(ws, headers, 5);
+
+        var row = 6;
+        foreach (var driver in drivers)
+        {
+            ws.Cell(row, 1).Value = driver.EmpresaTransporte?.NombreComercial ?? driver.IdEmpresa.ToString();
+            ws.Cell(row, 2).Value = driver.Nombres;
+            ws.Cell(row, 3).Value = driver.Apellidos;
+            ws.Cell(row, 4).Value = driver.Dni;
+            ws.Cell(row, 5).Value = driver.NumeroLicencia;
+            ws.Cell(row, 6).Value = driver.CategoriaLicencia;
+            ws.Cell(row, 7).Value = driver.FechaVencimientoLicencia;
+            ws.Cell(row, 8).Value = driver.Telefono ?? string.Empty;
+            ws.Cell(row, 9).Value = driver.Usuario?.Username ?? string.Empty;
+            ws.Cell(row, 10).Value = driver.Estado ? "ACTIVO" : "INACTIVO";
+            ws.Cell(row, 7).Style.DateFormat.Format = "dd/MM/yyyy";
+
+            ApplyBodyRow(ws, row, headers.Length);
+            row++;
+        }
+
+        FinishWorksheet(ws, headers.Length);
+        return SaveWorkbook(workbook);
+    }
+
+    public byte[] GenerateDriversImportTemplate()
+    {
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Carga Conductores");
+
+        ApplyMetafinHeader(ws, "Plantilla : Carga masiva conductores", "CONDUCTORES", 8);
+        string[] headers =
+        {
+            "NOMBRES", "APELLIDOS", "DNI", "NRO. LICENCIA",
+            "CATEGORIA", "VENCIMIENTO LICENCIA", "TELEFONO", "ESTADO"
+        };
+
+        ApplyTableHeader(ws, headers, 5);
+        ws.Cell(6, 1).Value = "Carlos";
+        ws.Cell(6, 2).Value = "Mendoza";
+        ws.Cell(6, 3).Value = "44556677";
+        ws.Cell(6, 4).Value = "LIC-44556677";
+        ws.Cell(6, 5).Value = "AIIIA";
+        ws.Cell(6, 6).Value = DateTime.Today.AddYears(2);
+        ws.Cell(6, 7).Value = "999444444";
+        ws.Cell(6, 8).Value = "ACTIVO";
+        ws.Cell(6, 6).Style.DateFormat.Format = "dd/MM/yyyy";
+        ApplyBodyRow(ws, 6, headers.Length);
+
+        FinishWorksheet(ws, headers.Length);
+        return SaveWorkbook(workbook);
+    }
+
+    public byte[] GenerateVehiclesImportTemplate()
+    {
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Carga Vehiculos");
+
+        ApplyMetafinHeader(ws, "Plantilla : Carga masiva vehiculos", "VEHICULOS", 11);
+        string[] headers =
+        {
+            "PLACA", "CODIGO INTERNO", "TIPO", "MARCA", "MODELO", "ANIO",
+            "CAPACIDAD", "VELOCIDAD MAXIMA", "KILOMETRAJE", "ESTADO OPERATIVO", "ESTADO"
+        };
+
+        ApplyTableHeader(ws, headers, 5);
+        ws.Cell(6, 1).Value = "ABC-999";
+        ws.Cell(6, 2).Value = "BUS-999";
+        ws.Cell(6, 3).Value = "BUS";
+        ws.Cell(6, 4).Value = "Mercedes";
+        ws.Cell(6, 5).Value = "OF-1721";
+        ws.Cell(6, 6).Value = DateTime.Today.Year;
+        ws.Cell(6, 7).Value = 40;
+        ws.Cell(6, 8).Value = 90;
+        ws.Cell(6, 9).Value = 0;
+        ws.Cell(6, 10).Value = "OPERATIVO";
+        ws.Cell(6, 11).Value = "ACTIVO";
+        ApplyBodyRow(ws, 6, headers.Length);
+
+        FinishWorksheet(ws, headers.Length);
+        return SaveWorkbook(workbook);
+    }
+
+    private static void ApplyMetafinHeader(IXLWorksheet ws, string title, string section, int columns)
+    {
+        var titleRange = ws.Range(2, 1, 2, Math.Min(columns, 3));
+        titleRange.Merge();
+        titleRange.Value = title;
+        titleRange.Style.Font.Bold = true;
+        titleRange.Style.Font.FontSize = 16;
+        titleRange.Style.Font.FontColor = XLColor.White;
+        titleRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#FE501E");
+        titleRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+        var sectionRange = ws.Range(4, 1, 4, columns);
+        sectionRange.Merge();
+        sectionRange.Value = section;
+        sectionRange.Style.Font.Bold = true;
+        sectionRange.Style.Font.FontSize = 13;
+        sectionRange.Style.Font.FontColor = XLColor.White;
+        sectionRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#FE5000");
+        sectionRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+    }
+
+    private static void ApplyTableHeader(IXLWorksheet ws, IReadOnlyList<string> headers, int row)
+    {
+        for (var i = 0; i < headers.Count; i++)
+        {
+            var cell = ws.Cell(row, i + 1);
+            cell.Value = headers[i];
+            cell.Style.Font.Bold = true;
+            cell.Style.Font.FontColor = XLColor.White;
+            cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#FE5000");
+            cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            cell.Style.Border.OutsideBorderColor = XLColor.White;
+        }
+    }
+
+    private static void ApplyBodyRow(IXLWorksheet ws, int row, int columns)
+    {
+        for (var col = 1; col <= columns; col++)
+        {
+            var cell = ws.Cell(row, col);
+            cell.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+            cell.Style.Border.BottomBorderColor = XLColor.FromHtml("#D9E2EC");
+        }
+    }
+
+    private static void FinishWorksheet(IXLWorksheet ws, int columns)
+    {
+        ws.SheetView.FreezeRows(5);
+        ws.Columns(1, columns).Width = 15;
+        ws.Columns(1, columns).AdjustToContents();
+        ws.Range(5, 1, Math.Max(6, ws.LastRowUsed()?.RowNumber() ?? 6), columns).SetAutoFilter();
+    }
+
+    private static byte[] SaveWorkbook(XLWorkbook workbook)
+    {
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
     public async Task<byte[]> GenerateRoutesPdfReportAsync(CancellationToken cancellationToken = default)
     {
         var routes = await _context.Rutas

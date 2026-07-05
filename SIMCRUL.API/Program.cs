@@ -62,6 +62,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddHttpClient<IRecaptchaService, GoogleRecaptchaService>();
 
 // 5. Real-Time and Web APIs

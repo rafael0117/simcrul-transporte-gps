@@ -88,4 +88,22 @@ public class ApiClient
         var response = await _httpClient.DeleteAsync(uri);
         return response.IsSuccessStatusCode;
     }
+
+    public async Task<TResponse?> PostFileAsync<TResponse>(string uri, IFormFile file)
+    {
+        AddAuthHeader();
+        using var content = new MultipartFormDataContent();
+        await using var stream = file.OpenReadStream();
+        content.Add(new StreamContent(stream), "file", file.FileName);
+
+        var response = await _httpClient.PostAsync(uri, content);
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync();
+            throw new Exception($"API Error ({response.StatusCode}): {err}");
+        }
+
+        var responseContent = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<TResponse>(responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    }
 }

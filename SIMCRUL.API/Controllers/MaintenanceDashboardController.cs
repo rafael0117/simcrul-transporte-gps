@@ -1,4 +1,5 @@
 using System.Text;
+using System.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,47 @@ public class MaintenanceDashboardController : MaintenanceApiControllerBase
 
     [HttpGet("summary")]
     public async Task<IActionResult> GetSummary(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return Ok(await GetSummaryFromStoredProceduresAsync(cancellationToken));
+        }
+        catch (Exception)
+        {
+            return Ok(await GetSummaryFromEfAsync(cancellationToken));
+        }
+    }
+
+    private async Task<MaintenanceDashboardDto> GetSummaryFromStoredProceduresAsync(CancellationToken cancellationToken)
+    {
+        var dto = await ExecuteSingleRowAsync("dbo.sp_MaintenanceDashboardSummary", reader => new MaintenanceDashboardDto
+        {
+            TotalVehiculos = reader.GetInt32(reader.GetOrdinal("TotalVehiculos")),
+            VehiculosOperativos = reader.GetInt32(reader.GetOrdinal("VehiculosOperativos")),
+            VehiculosEnMantenimiento = reader.GetInt32(reader.GetOrdinal("VehiculosEnMantenimiento")),
+            VehiculosFueraDeServicio = reader.GetInt32(reader.GetOrdinal("VehiculosFueraDeServicio")),
+            InspeccionesHoy = reader.GetInt32(reader.GetOrdinal("InspeccionesHoy")),
+            IncidenciasAbiertas = reader.GetInt32(reader.GetOrdinal("IncidenciasAbiertas")),
+            OrdenesPendientes = reader.GetInt32(reader.GetOrdinal("OrdenesPendientes")),
+            OrdenesFinalizadasMes = reader.GetInt32(reader.GetOrdinal("OrdenesFinalizadasMes"))
+        }, cancellationToken) ?? new MaintenanceDashboardDto();
+
+        dto.IncidenciasPorTipo = await ExecuteListAsync("dbo.sp_MaintenanceDashboardIncidenciasPorTipo", MapChartDataPoint, cancellationToken);
+        dto.OrdenesPorEstado = await ExecuteListAsync("dbo.sp_MaintenanceDashboardOrdenesPorEstado", MapChartDataPoint, cancellationToken);
+        dto.HistorialMensual = await ExecuteListAsync("dbo.sp_MaintenanceDashboardHistorialMensual", MapChartDataPoint, cancellationToken);
+        dto.ProximosPreventivos = await ExecuteListAsync("dbo.sp_MaintenanceDashboardProximosPreventivos", reader => new UpcomingPlanDto
+        {
+            IdPlanMantenimientoPreventivo = reader.GetInt32(reader.GetOrdinal("IdPlanMantenimientoPreventivo")),
+            Vehiculo = reader.GetString(reader.GetOrdinal("Vehiculo")),
+            ProximaFechaProgramada = reader.GetDateTime(reader.GetOrdinal("ProximaFechaProgramada")),
+            Prioridad = reader.GetString(reader.GetOrdinal("Prioridad")),
+            Actividades = reader.GetString(reader.GetOrdinal("Actividades"))
+        }, cancellationToken);
+
+        return dto;
+    }
+
+    private async Task<MaintenanceDashboardDto> GetSummaryFromEfAsync(CancellationToken cancellationToken)
     {
         var today = DateTime.UtcNow.Date;
         var monthStart = new DateTime(today.Year, today.Month, 1);
@@ -84,7 +126,62 @@ public class MaintenanceDashboardController : MaintenanceApiControllerBase
             })
             .ToListAsync(cancellationToken);
 
-        return Ok(dto);
+        return dto;
+    }
+
+    private static ChartDataPointDto MapChartDataPoint(IDataRecord reader)
+    {
+        return new ChartDataPointDto
+        {
+            Label = reader.GetString(reader.GetOrdinal("Label")),
+            Value = reader.GetInt32(reader.GetOrdinal("Value"))
+        };
+    }
+
+    private async Task<T?> ExecuteSingleRowAsync<T>(
+        string procedureName,
+        Func<IDataRecord, T> map,
+        CancellationToken cancellationToken)
+    {
+        var rows = await ExecuteListAsync(procedureName, map, cancellationToken);
+        return rows.FirstOrDefault();
+    }
+
+    private async Task<List<T>> ExecuteListAsync<T>(
+        string procedureName,
+        Func<IDataRecord, T> map,
+        CancellationToken cancellationToken)
+    {
+        var connection = _context.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+
+        if (shouldClose)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = procedureName;
+            command.CommandType = CommandType.StoredProcedure;
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            var result = new List<T>();
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result.Add(map(reader));
+            }
+
+            return result;
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await connection.CloseAsync();
+            }
+        }
     }
 
     [HttpGet("history")]

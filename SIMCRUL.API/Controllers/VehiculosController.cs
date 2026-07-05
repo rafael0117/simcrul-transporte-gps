@@ -1,7 +1,10 @@
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SIMCRUL.Business.Interfaces;
 using SIMCRUL.Common.Constants;
+using SIMCRUL.Common.DTOs.Shared;
 using SIMCRUL.Common.DTOs.Vehicles;
 using SIMCRUL.Data.Context;
 using SIMCRUL.Entity;
@@ -14,10 +17,12 @@ namespace SIMCRUL.API.Controllers;
 public class VehiculosController : MaintenanceApiControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly IReportService _reportService;
 
-    public VehiculosController(ApplicationDbContext context)
+    public VehiculosController(ApplicationDbContext context, IReportService reportService)
     {
         _context = context;
+        _reportService = reportService;
     }
 
     [HttpGet]
@@ -181,6 +186,102 @@ public class VehiculosController : MaintenanceApiControllerBase
         return Ok(new { message = "Vehiculo desactivado correctamente." });
     }
 
+    [HttpGet("template")]
+    public IActionResult Template()
+    {
+        if (!UserHasAnyRole(Roles.Administrador))
+        {
+            return Forbid();
+        }
+
+        var bytes = _reportService.GenerateVehiclesImportTemplate();
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "plantilla-vehiculos.xlsx");
+    }
+
+    [HttpPost("import")]
+    public async Task<IActionResult> Import(IFormFile file, CancellationToken cancellationToken = default)
+    {
+        if (!UserHasAnyRole(Roles.Administrador))
+        {
+            return Forbid();
+        }
+
+        if (file.Length == 0)
+        {
+            return BadRequest(new { message = "Debe seleccionar un archivo Excel." });
+        }
+
+        var company = await _context.EmpresasTransporte.OrderBy(e => e.IdEmpresa).FirstOrDefaultAsync(cancellationToken);
+        if (company == null)
+        {
+            return BadRequest(new { message = "No existe una empresa activa para asociar los vehiculos." });
+        }
+
+        var result = new BulkImportResultDto();
+        var existingPlates = await _context.Vehiculos.Select(v => v.Placa).ToListAsync(cancellationToken);
+        var existingCodes = await _context.Vehiculos.Select(v => v.CodigoInterno).ToListAsync(cancellationToken);
+        var plates = new HashSet<string>(existingPlates, StringComparer.OrdinalIgnoreCase);
+        var codes = new HashSet<string>(existingCodes, StringComparer.OrdinalIgnoreCase);
+
+        using var stream = file.OpenReadStream();
+        using var workbook = new XLWorkbook(stream);
+        var ws = workbook.Worksheets.First();
+        var lastRow = ws.LastRowUsed()?.RowNumber() ?? 5;
+
+        for (var row = 6; row <= lastRow; row++)
+        {
+            if (RowIsEmpty(ws, row, 11))
+            {
+                continue;
+            }
+
+            result.TotalRows++;
+            var plate = GetCellText(ws, row, 1).ToUpperInvariant();
+            var code = GetCellText(ws, row, 2).ToUpperInvariant();
+            var type = GetCellText(ws, row, 3).ToUpperInvariant();
+            var brand = GetCellText(ws, row, 4);
+            var model = GetCellText(ws, row, 5);
+            var operativeStatus = GetCellText(ws, row, 10).ToUpperInvariant();
+            var activeText = GetCellText(ws, row, 11);
+
+            if (string.IsNullOrWhiteSpace(plate) || string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(type) ||
+                !TryGetInt(ws.Cell(row, 7), out var capacity) || !TryGetDecimal(ws.Cell(row, 8), out var maxSpeed) ||
+                !TryGetDecimal(ws.Cell(row, 9), out var mileage))
+            {
+                AddImportError(result, row, "Campos obligatorios incompletos o valores numericos invalidos.");
+                continue;
+            }
+
+            if (!plates.Add(plate) || !codes.Add(code))
+            {
+                AddImportError(result, row, "Placa o codigo interno duplicados.");
+                continue;
+            }
+
+            _context.Vehiculos.Add(new Vehiculo
+            {
+                IdEmpresa = company.IdEmpresa,
+                Placa = plate,
+                CodigoInterno = code,
+                TipoVehiculo = type,
+                Marca = NormalizeOptional(brand),
+                Modelo = NormalizeOptional(model),
+                Anio = TryGetInt(ws.Cell(row, 6), out var year) ? year : null,
+                CapacidadPasajeros = capacity,
+                VelocidadMaximaKmh = maxSpeed,
+                KilometrajeActual = mileage,
+                EstadoOperativo = string.IsNullOrWhiteSpace(operativeStatus) ? "OPERATIVO" : operativeStatus,
+                Estado = !string.Equals(activeText, "INACTIVO", StringComparison.OrdinalIgnoreCase),
+                FechaRegistro = DateTime.UtcNow
+            });
+
+            result.CreatedRows++;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return Ok(result);
+    }
+
     private static VehicleManagementDto MapToDto(Vehiculo vehicle)
     {
         return new VehicleManagementDto
@@ -206,5 +307,41 @@ public class VehiculosController : MaintenanceApiControllerBase
     private static string? NormalizeOptional(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static bool RowIsEmpty(IXLWorksheet ws, int row, int columns)
+    {
+        return Enumerable.Range(1, columns).All(col => string.IsNullOrWhiteSpace(GetCellText(ws, row, col)));
+    }
+
+    private static string GetCellText(IXLWorksheet ws, int row, int col)
+    {
+        return ws.Cell(row, col).GetFormattedString().Trim();
+    }
+
+    private static bool TryGetInt(IXLCell cell, out int value)
+    {
+        if (cell.TryGetValue(out value))
+        {
+            return true;
+        }
+
+        return int.TryParse(cell.GetFormattedString(), out value);
+    }
+
+    private static bool TryGetDecimal(IXLCell cell, out decimal value)
+    {
+        if (cell.TryGetValue(out value))
+        {
+            return true;
+        }
+
+        return decimal.TryParse(cell.GetFormattedString(), out value);
+    }
+
+    private static void AddImportError(BulkImportResultDto result, int row, string error)
+    {
+        result.SkippedRows++;
+        result.Errors.Add($"Fila {row}: {error}");
     }
 }

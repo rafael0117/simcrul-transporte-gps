@@ -1,0 +1,30 @@
+@model SIMCRUL.Common.DTOs.Drivers.ConductorManagementDto
+@{
+    ViewData["Title"] = "Registrar conductor";
+}
+
+<form asp-action="Crear" method="post" class="form-card stack">
+    <div asp-validation-summary="ModelOnly"></div>
+    <div class="form-grid">
+        <div class="form-field"><label asp-for="Nombres"></label><input asp-for="Nombres" /></div>
+        <div class="form-field"><label asp-for="Apellidos"></label><input asp-for="Apellidos" /></div>
+        <div class="form-field"><label asp-for="Dni"></label><input asp-for="Dni" maxlength="12" /></div>
+        <div class="form-field"><label asp-for="NumeroLicencia"></label><input asp-for="NumeroLicencia" /></div>
+        <div class="form-field"><label asp-for="CategoriaLicencia"></label><input asp-for="CategoriaLicencia" /></div>
+        <div class="form-field"><label asp-for="FechaVencimientoLicencia"></label><input asp-for="FechaVencimientoLicencia" type="date" /></div>
+        <div class="form-field"><label asp-for="Telefono"></label><input asp-for="Telefono" /></div>
+        <div class="form-field">
+            <label asp-for="Estado"></label>
+            <select asp-for="Estado">
+                <option value="true">ACTIVO</option>
+                <option value="false">INACTIVO</option>
+            </select>
+        </div>
+    </div>
+    <div class="page-actions">
+        <button type="submit">Guardar conductor</button>
+        <a asp-action="Index" class="btn btn-light">Cancelar</a>
+    </div>
+</form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

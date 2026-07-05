@@ -291,6 +291,105 @@ public static class DatabaseInitializer
         await context.Database.ExecuteSqlRawAsync(ordersSql);
         await context.Database.ExecuteSqlRawAsync(executionsSql);
         await context.Database.ExecuteSqlRawAsync(sparePartsSql);
+        await EnsureMaintenanceDashboardStoredProceduresAsync(context);
+    }
+
+    private static async Task EnsureMaintenanceDashboardStoredProceduresAsync(ApplicationDbContext context)
+    {
+        const string dashboardSummarySp = """
+            CREATE OR ALTER PROCEDURE dbo.sp_MaintenanceDashboardSummary
+            AS
+            BEGIN
+                SET NOCOUNT ON;
+
+                DECLARE @today DATE = CONVERT(DATE, SYSUTCDATETIME());
+                DECLARE @monthStart DATE = DATEFROMPARTS(YEAR(@today), MONTH(@today), 1);
+
+                SELECT
+                    TotalVehiculos = COUNT(CASE WHEN v.estado = 1 THEN 1 END),
+                    VehiculosOperativos = COUNT(CASE WHEN v.estado = 1 AND v.estado_operativo = 'OPERATIVO' THEN 1 END),
+                    VehiculosEnMantenimiento = COUNT(CASE WHEN v.estado = 1 AND v.estado_operativo = 'EN_MANTENIMIENTO' THEN 1 END),
+                    VehiculosFueraDeServicio = COUNT(CASE WHEN v.estado = 1 AND v.estado_operativo = 'FUERA_DE_SERVICIO' THEN 1 END),
+                    InspeccionesHoy = (SELECT COUNT(1) FROM INSPECCIONES_DIARIAS i WHERE i.fecha_inspeccion >= @today),
+                    IncidenciasAbiertas = (SELECT COUNT(1) FROM INCIDENCIAS_MANTENIMIENTO i WHERE i.estado <> 'CERRADA'),
+                    OrdenesPendientes = (SELECT COUNT(1) FROM ORDENES_TRABAJO o WHERE o.estado <> 'FINALIZADA'),
+                    OrdenesFinalizadasMes = (SELECT COUNT(1) FROM ORDENES_TRABAJO o WHERE o.estado = 'FINALIZADA' AND o.fecha_fin >= @monthStart)
+                FROM VEHICULOS v;
+            END
+            """;
+
+        const string incidentsByTypeSp = """
+            CREATE OR ALTER PROCEDURE dbo.sp_MaintenanceDashboardIncidenciasPorTipo
+            AS
+            BEGIN
+                SET NOCOUNT ON;
+
+                SELECT
+                    Label = tipo_incidencia,
+                    Value = COUNT(1)
+                FROM INCIDENCIAS_MANTENIMIENTO
+                GROUP BY tipo_incidencia
+                ORDER BY Value DESC;
+            END
+            """;
+
+        const string ordersByStatusSp = """
+            CREATE OR ALTER PROCEDURE dbo.sp_MaintenanceDashboardOrdenesPorEstado
+            AS
+            BEGIN
+                SET NOCOUNT ON;
+
+                SELECT
+                    Label = estado,
+                    Value = COUNT(1)
+                FROM ORDENES_TRABAJO
+                GROUP BY estado
+                ORDER BY Value DESC;
+            END
+            """;
+
+        const string monthlyHistorySp = """
+            CREATE OR ALTER PROCEDURE dbo.sp_MaintenanceDashboardHistorialMensual
+            AS
+            BEGIN
+                SET NOCOUNT ON;
+
+                DECLARE @fromDate DATE = DATEADD(MONTH, -5, CONVERT(DATE, SYSUTCDATETIME()));
+
+                SELECT
+                    Label = CONCAT(YEAR(fecha_generacion), '-', RIGHT(CONCAT('00', MONTH(fecha_generacion)), 2)),
+                    Value = COUNT(1)
+                FROM ORDENES_TRABAJO
+                WHERE fecha_generacion >= @fromDate
+                GROUP BY YEAR(fecha_generacion), MONTH(fecha_generacion)
+                ORDER BY Label;
+            END
+            """;
+
+        const string upcomingPlansSp = """
+            CREATE OR ALTER PROCEDURE dbo.sp_MaintenanceDashboardProximosPreventivos
+            AS
+            BEGIN
+                SET NOCOUNT ON;
+
+                SELECT TOP (5)
+                    IdPlanMantenimientoPreventivo = p.id_plan_mantenimiento_preventivo,
+                    Vehiculo = CONCAT(v.codigo_interno, ' - ', v.placa),
+                    ProximaFechaProgramada = p.proxima_fecha_programada,
+                    Prioridad = p.prioridad,
+                    Actividades = p.actividades
+                FROM PLANES_MANTENIMIENTO_PREVENTIVO p
+                INNER JOIN VEHICULOS v ON v.id_vehiculo = p.id_vehiculo
+                WHERE p.estado = 'PROGRAMADO'
+                ORDER BY p.proxima_fecha_programada;
+            END
+            """;
+
+        await context.Database.ExecuteSqlRawAsync(dashboardSummarySp);
+        await context.Database.ExecuteSqlRawAsync(incidentsByTypeSp);
+        await context.Database.ExecuteSqlRawAsync(ordersByStatusSp);
+        await context.Database.ExecuteSqlRawAsync(monthlyHistorySp);
+        await context.Database.ExecuteSqlRawAsync(upcomingPlansSp);
     }
 
     private static async Task EnsureRolesAsync(ApplicationDbContext context)

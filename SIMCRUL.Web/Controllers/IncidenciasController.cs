@@ -25,6 +25,23 @@ public class IncidenciasController : Controller
         return View(incidents);
     }
 
+    public async Task<IActionResult> Detalle(int id)
+    {
+        if (!SessionAuthHelper.IsAuthenticated(HttpContext.Session))
+        {
+            return RedirectToAction("Login", "Home");
+        }
+
+        var incident = await _apiClient.GetAsync<IncidentDto>($"Incidencias/{id}");
+        if (incident == null)
+        {
+            TempData["ErrorMessage"] = "Incidencia no encontrada.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        return View(incident);
+    }
+
     [HttpGet]
     public async Task<IActionResult> Crear()
     {
@@ -76,7 +93,7 @@ public class IncidenciasController : Controller
 
         try
         {
-            await _apiClient.PutAsync<IncidentDto, object>($"Incidencias/{id}/estado", new IncidentDto { Estado = estado });
+            await _apiClient.PutAsync<IncidentStatusUpdateDto, object>($"Incidencias/{id}/estado", new IncidentStatusUpdateDto { Estado = estado });
             TempData["SuccessMessage"] = "Estado de incidencia actualizado.";
         }
         catch (Exception ex)

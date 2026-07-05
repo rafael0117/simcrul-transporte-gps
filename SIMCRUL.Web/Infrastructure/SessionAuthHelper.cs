@@ -47,6 +47,7 @@ public static class SessionAuthHelper
     }
 
     public static bool CanManageVehicles(ISession session) => IsAdminAuthenticated(session);
+    public static bool CanManageDrivers(ISession session) => IsAdminAuthenticated(session);
     public static bool CanManagePlans(ISession session) => IsChiefAuthenticated(session);
     public static bool CanViewHistory(ISession session) => IsAdminAuthenticated(session) || IsChiefAuthenticated(session);
     public static bool CanViewStats(ISession session) => IsAdminAuthenticated(session) || IsChiefAuthenticated(session);

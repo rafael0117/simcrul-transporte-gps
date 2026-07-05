@@ -28,19 +28,23 @@
                 <td>@item.Estado</td>
                 <td>@item.NombreReportadoPor</td>
                 <td>
-                    @if (SessionAuthHelper.IsChiefAuthenticated(Context.Session) || SessionAuthHelper.IsTechnicianAuthenticated(Context.Session) || SessionAuthHelper.IsAdminAuthenticated(Context.Session))
+                    @if (SessionAuthHelper.IsAuthenticated(Context.Session))
                     {
                         <div class="inline-actions">
-                            <form asp-action="ActualizarEstado" method="post">
-                                <input type="hidden" name="id" value="@item.IdIncidenciaMantenimiento" />
-                                <input type="hidden" name="estado" value="EN_REPARACION" />
-                                <button type="submit" class="btn btn-light">En reparacion</button>
-                            </form>
-                            <form asp-action="ActualizarEstado" method="post">
-                                <input type="hidden" name="id" value="@item.IdIncidenciaMantenimiento" />
-                                <input type="hidden" name="estado" value="CERRADA" />
-                                <button type="submit" class="btn btn-secondary">Cerrar</button>
-                            </form>
+                            <a asp-action="Detalle" asp-route-id="@item.IdIncidenciaMantenimiento" class="btn btn-light">Ver detalle</a>
+                            @if (SessionAuthHelper.IsChiefAuthenticated(Context.Session) || SessionAuthHelper.IsTechnicianAuthenticated(Context.Session) || SessionAuthHelper.IsAdminAuthenticated(Context.Session))
+                            {
+                                <form asp-action="ActualizarEstado" method="post">
+                                    <input type="hidden" name="id" value="@item.IdIncidenciaMantenimiento" />
+                                    <input type="hidden" name="estado" value="EN_REPARACION" />
+                                    <button type="submit" class="btn btn-light">En reparacion</button>
+                                </form>
+                                <form asp-action="ActualizarEstado" method="post">
+                                    <input type="hidden" name="id" value="@item.IdIncidenciaMantenimiento" />
+                                    <input type="hidden" name="estado" value="CERRADA" />
+                                    <button type="submit" class="btn btn-secondary">Cerrar</button>
+                                </form>
+                            }
                         </div>
                     }
                 </td>

@@ -5,6 +5,11 @@
 
 <section class="page-actions">
     <a asp-action="Crear" class="btn btn-primary">Nuevo vehiculo</a>
+    <a asp-action="DescargarPlantilla" class="btn btn-light">Plantilla carga</a>
+    <form asp-action="Importar" method="post" enctype="multipart/form-data" class="inline-actions">
+        <input type="file" name="file" accept=".xlsx" />
+        <button type="submit" class="btn btn-secondary">Cargar Excel</button>
+    </form>
 </section>
 
 <section class="table-card">

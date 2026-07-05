@@ -1,0 +1,54 @@
+@model List<SIMCRUL.Common.DTOs.Drivers.ConductorManagementDto>
+@{
+    ViewData["Title"] = "Conductores";
+}
+
+<section class="page-actions">
+    <a asp-action="Crear" class="btn btn-primary">Nuevo conductor</a>
+    <a asp-action="Exportar" class="btn btn-light">Exportar Excel</a>
+    <a asp-action="DescargarPlantilla" class="btn btn-light">Plantilla carga</a>
+    <form asp-action="Importar" method="post" enctype="multipart/form-data" class="inline-actions">
+        <input type="file" name="file" accept=".xlsx" />
+        <button type="submit" class="btn btn-secondary">Cargar Excel</button>
+    </form>
+</section>
+
+<section class="table-card">
+    <table>
+        <thead>
+            <tr>
+                <th>Conductor</th>
+                <th>DNI</th>
+                <th>Licencia</th>
+                <th>Categoria</th>
+                <th>Vencimiento</th>
+                <th>Telefono</th>
+                <th>Estado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.Apellidos, @item.Nombres</td>
+                <td>@item.Dni</td>
+                <td>@item.NumeroLicencia</td>
+                <td>@item.CategoriaLicencia</td>
+                <td>@item.FechaVencimientoLicencia.ToString("dd/MM/yyyy")</td>
+                <td>@(item.Telefono ?? "-")</td>
+                <td><span class="chip @(item.Estado ? "" : "danger")">@(item.Estado ? "ACTIVO" : "INACTIVO")</span></td>
+                <td>
+                    <div class="inline-actions">
+                        <a asp-action="Editar" asp-route-id="@item.IdConductor" class="btn btn-light">Editar</a>
+                        <form asp-action="Eliminar" method="post">
+                            <input type="hidden" name="id" value="@item.IdConductor" />
+                            <button type="submit" class="btn btn-secondary">Desactivar</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>

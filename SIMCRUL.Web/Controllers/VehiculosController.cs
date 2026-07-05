@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SIMCRUL.Common.DTOs.Shared;
 using SIMCRUL.Common.DTOs.Vehicles;
 using SIMCRUL.Web.Infrastructure;
 using SIMCRUL.Web.Services;
@@ -118,6 +119,48 @@ public class VehiculosController : Controller
         TempData[deleted ? "SuccessMessage" : "ErrorMessage"] = deleted
             ? "Vehiculo desactivado correctamente."
             : "No se pudo desactivar el vehiculo.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    public async Task<IActionResult> DescargarPlantilla()
+    {
+        if (!SessionAuthHelper.CanManageVehicles(HttpContext.Session))
+        {
+            return RedirectToAction("Index", "Dashboard");
+        }
+
+        var bytes = await _apiClient.GetBytesAsync("Vehiculos/template");
+        return File(bytes ?? [], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "plantilla-vehiculos.xlsx");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Importar(IFormFile file)
+    {
+        if (!SessionAuthHelper.CanManageVehicles(HttpContext.Session))
+        {
+            return RedirectToAction("Index", "Dashboard");
+        }
+
+        if (file == null || file.Length == 0)
+        {
+            TempData["ErrorMessage"] = "Selecciona un archivo Excel para importar.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        try
+        {
+            var result = await _apiClient.PostFileAsync<BulkImportResultDto>("Vehiculos/import", file);
+            TempData["SuccessMessage"] = $"Carga procesada: {result?.CreatedRows ?? 0} creados, {result?.SkippedRows ?? 0} omitidos.";
+            if (result?.Errors.Count > 0)
+            {
+                TempData["ErrorMessage"] = string.Join(" | ", result.Errors.Take(5));
+            }
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = ex.Message;
+        }
+
         return RedirectToAction(nameof(Index));
     }
 }

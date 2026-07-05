@@ -1,0 +1,61 @@
+@model SIMCRUL.Common.DTOs.Maintenance.IncidentDto
+@{
+    ViewData["Title"] = "Detalle de incidencia";
+}
+
+<section class="stats-grid">
+    <article class="stat-card">
+        <span>Vehiculo</span>
+        <strong>@Model.NombreVehiculo</strong>
+    </article>
+    <article class="stat-card">
+        <span>Tipo</span>
+        <strong>@Model.TipoIncidencia</strong>
+    </article>
+    <article class="stat-card">
+        <span>Severidad</span>
+        <strong>@Model.Severidad</strong>
+    </article>
+    <article class="stat-card">
+        <span>Estado</span>
+        <strong>@Model.Estado</strong>
+    </article>
+</section>
+
+<section class="form-card stack">
+    <div class="form-grid">
+        <div class="form-field">
+            <label>Titulo</label>
+            <input value="@Model.Titulo" readonly />
+        </div>
+        <div class="form-field">
+            <label>Reportado por</label>
+            <input value="@Model.NombreReportadoPor" readonly />
+        </div>
+        <div class="form-field">
+            <label>Fecha reporte</label>
+            <input value="@Model.FechaReporte.ToString("dd/MM/yyyy HH:mm")" readonly />
+        </div>
+        <div class="form-field">
+            <label>Fecha cierre</label>
+            <input value="@(Model.FechaCierre?.ToString("dd/MM/yyyy HH:mm") ?? "-")" readonly />
+        </div>
+        <div class="form-field">
+            <label>Ubicacion referencia</label>
+            <input value="@(Model.UbicacionReferencia ?? "-")" readonly />
+        </div>
+        <div class="form-field">
+            <label>Requiere parada</label>
+            <input value="@(Model.RequiereParada ? "SI" : "NO")" readonly />
+        </div>
+    </div>
+
+    <div class="form-field">
+        <label>Descripcion</label>
+        <textarea readonly>@Model.Descripcion</textarea>
+    </div>
+
+    <div class="page-actions">
+        <a asp-action="Index" class="btn btn-light">Volver</a>
+    </div>
+</section>

@@ -80,6 +80,12 @@ public class IncidentDto
     public string? NombreReportadoPor { get; set; }
 }
 
+public class IncidentStatusUpdateDto
+{
+    [Required(ErrorMessage = "Debe indicar el estado de la incidencia.")]
+    public string Estado { get; set; } = string.Empty;
+}
+
 public class PreventivePlanDto
 {
     public int IdPlanMantenimientoPreventivo { get; set; }

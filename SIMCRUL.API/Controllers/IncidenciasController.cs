@@ -59,6 +59,47 @@ public class IncidenciasController : MaintenanceApiControllerBase
         return Ok(incidents);
     }
 
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken = default)
+    {
+        var query = _context.IncidenciasMantenimiento
+            .Include(i => i.Vehiculo)
+            .Include(i => i.ReportadoPorUsuario)
+            .AsQueryable();
+
+        if (User.IsInRole(Roles.Conductor))
+        {
+            var userId = GetCurrentUserId();
+            query = query.Where(i => i.IdReportadoPorUsuario == userId);
+        }
+
+        var incident = await query
+            .Where(i => i.IdIncidenciaMantenimiento == id)
+            .Select(i => new IncidentDto
+            {
+                IdIncidenciaMantenimiento = i.IdIncidenciaMantenimiento,
+                IdVehiculo = i.IdVehiculo,
+                IdReportadoPorUsuario = i.IdReportadoPorUsuario,
+                IdInspeccionDiaria = i.IdInspeccionDiaria,
+                FechaReporte = i.FechaReporte,
+                TipoIncidencia = i.TipoIncidencia,
+                Severidad = i.Severidad,
+                Titulo = i.Titulo,
+                Descripcion = i.Descripcion,
+                Estado = i.Estado,
+                RequiereParada = i.RequiereParada,
+                UbicacionReferencia = i.UbicacionReferencia,
+                FechaCierre = i.FechaCierre,
+                NombreVehiculo = i.Vehiculo.CodigoInterno + " - " + i.Vehiculo.Placa,
+                NombreReportadoPor = (i.ReportadoPorUsuario.Nombres + " " + i.ReportadoPorUsuario.Apellidos).Trim()
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return incident == null
+            ? NotFound(new { message = "Incidencia no encontrada." })
+            : Ok(incident);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] IncidentDto model, CancellationToken cancellationToken = default)
     {
@@ -115,11 +156,16 @@ public class IncidenciasController : MaintenanceApiControllerBase
     }
 
     [HttpPut("{id:int}/estado")]
-    public async Task<IActionResult> UpdateStatus(int id, [FromBody] IncidentDto model, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> UpdateStatus(int id, [FromBody] IncidentStatusUpdateDto model, CancellationToken cancellationToken = default)
     {
         if (!UserHasAnyRole(Roles.JefeMantenimiento, Roles.TecnicoMantenimiento, Roles.Administrador))
         {
             return Forbid();
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
         }
 
         var incident = await _context.IncidenciasMantenimiento

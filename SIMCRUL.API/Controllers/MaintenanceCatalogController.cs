@@ -25,15 +25,14 @@ public class MaintenanceCatalogController : MaintenanceApiControllerBase
         var vehicles = await _context.Vehiculos
             .Where(v => v.Estado)
             .OrderBy(v => v.CodigoInterno)
-            .Select(v => new VehicleOptionDto
-            {
-                IdVehiculo = v.IdVehiculo,
-                Etiqueta = v.CodigoInterno + " - " + v.Placa + " (" + v.EstadoOperativo + ")",
-                EstadoOperativo = v.EstadoOperativo
-            })
             .ToListAsync(cancellationToken);
 
-        return Ok(vehicles);
+        return Ok(vehicles.Select(v => new VehicleOptionDto
+        {
+            IdVehiculo = v.IdVehiculo,
+            Etiqueta = $"{v.CodigoInterno} - {v.Placa} ({v.EstadoOperativo})",
+            EstadoOperativo = v.EstadoOperativo
+        }));
     }
 
     [HttpGet("technicians")]
