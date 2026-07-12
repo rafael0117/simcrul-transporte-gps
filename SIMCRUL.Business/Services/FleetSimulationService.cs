@@ -13,6 +13,8 @@ public class FleetSimulationService : IFleetSimulationService
     private const string NormalEvent = "NORMAL";
     private const string SpeedEvent = "VELOCIDAD";
     private const string RouteDeviationEvent = "DESVIO";
+    private const string ProfessorDemoRouteCode = "DEMO-PROF";
+    private const string ProfessorDemoImei = "MOBILE-DEMO-001";
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<FleetSimulationService> _logger;
@@ -137,6 +139,7 @@ public class FleetSimulationService : IFleetSimulationService
             .Include(assignment => assignment.Conductor)
             .Where(assignment => assignment.Estado == "ACTIVA" &&
                                  assignment.Ruta.Activa &&
+                                 assignment.Ruta.CodigoRuta != ProfessorDemoRouteCode &&
                                  assignment.Vehiculo.Estado &&
                                  assignment.Conductor.Estado)
             .ToListAsync(cancellationToken);
@@ -174,6 +177,11 @@ public class FleetSimulationService : IFleetSimulationService
         foreach (var assignment in assignments)
         {
             if (!devicesByVehicle.TryGetValue(assignment.IdVehiculo, out var device))
+            {
+                continue;
+            }
+
+            if (string.Equals(device.Imei, ProfessorDemoImei, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }

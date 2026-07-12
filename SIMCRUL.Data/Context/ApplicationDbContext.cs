@@ -247,6 +247,28 @@ public class ApplicationDbContext : DbContext
             .WithMany()
             .HasForeignKey(sp => sp.IdRuta)
             .OnDelete(DeleteBehavior.SetNull);
+
+        ConfigureCoordinatePrecision(modelBuilder);
+    }
+
+    private static void ConfigureCoordinatePrecision(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<RutaPuntoControl>().Property(x => x.Latitud).HasPrecision(18, 7);
+        modelBuilder.Entity<RutaPuntoControl>().Property(x => x.Longitud).HasPrecision(18, 7);
+
+        modelBuilder.Entity<Paradero>().Property(x => x.Latitud).HasPrecision(18, 7);
+        modelBuilder.Entity<Paradero>().Property(x => x.Longitud).HasPrecision(18, 7);
+
+        modelBuilder.Entity<GpsLectura>().Property(x => x.Latitud).HasPrecision(18, 7);
+        modelBuilder.Entity<GpsLectura>().Property(x => x.Longitud).HasPrecision(18, 7);
+
+        modelBuilder.Entity<Alerta>().Property(x => x.Latitud).HasPrecision(18, 7);
+        modelBuilder.Entity<Alerta>().Property(x => x.Longitud).HasPrecision(18, 7);
+
+        modelBuilder.Entity<Viaje>().Property(x => x.LatitudInicio).HasPrecision(18, 7);
+        modelBuilder.Entity<Viaje>().Property(x => x.LongitudInicio).HasPrecision(18, 7);
+        modelBuilder.Entity<Viaje>().Property(x => x.LatitudFin).HasPrecision(18, 7);
+        modelBuilder.Entity<Viaje>().Property(x => x.LongitudFin).HasPrecision(18, 7);
     }
 
     private static string ToSnakeCase(string input)

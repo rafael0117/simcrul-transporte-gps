@@ -1,4 +1,4 @@
-@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+﻿@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     ViewData["Title"] = "Consulta Publica de Rutas y ETA";
     var googleMapsApiKey = Configuration["GoogleMaps:ApiKey"] ?? string.Empty;
@@ -73,8 +73,8 @@
 @section Scripts {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
     <script>
-        const apiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
-        const signalrUrl = '@Configuration["ApiSettings:SignalrUrl"]';
+        const apiBaseUrl = '@(Configuration["ApiSettings:BrowserBaseUrl"] ?? Configuration["ApiSettings:BaseUrl"])';
+        const signalrUrl = '@(Configuration["ApiSettings:BrowserSignalrUrl"] ?? Configuration["ApiSettings:SignalrUrl"])';
         const useGoogleMaps = @((useGoogleMaps && hasGoogleMapsKey).ToString().ToLowerInvariant());
         const googleMapsApiKey = '@googleMapsApiKey';
 
@@ -381,7 +381,7 @@
                 const eta = estimateBusEta(vehicle);
                 const etaText = eta ? `${eta.etaMinutes} min` : '--';
                 const etaHint = eta
-                    ? `${eta.hintLabel}: ${eta.stopName} • ${eta.distanceKm.toFixed(1)} km`
+                    ? `${eta.hintLabel}: ${eta.stopName} â€¢ ${eta.distanceKm.toFixed(1)} km`
                     : 'Esperando una ubicacion valida.';
 
                 return `
@@ -395,7 +395,7 @@
                                 <span style="font-weight: 700; color: var(--success); font-size: 0.95rem;">${etaText}</span>
                             </div>
                             <div style="margin-top: 0.2rem; color: var(--text-secondary); font-size: 0.8rem;">
-                                ${vehicle.codigoInterno || 'Unidad'} • ${Math.round(Number(vehicle.velocidadKmh) || 0)} km/h
+                                ${vehicle.codigoInterno || 'Unidad'} â€¢ ${Math.round(Number(vehicle.velocidadKmh) || 0)} km/h
                             </div>
                             <div style="margin-top: 0.35rem; color: var(--text-muted); font-size: 0.78rem;">
                                 ${etaHint}
@@ -699,3 +699,5 @@
         bootstrapPassengerMap();
     </script>
 }
+
+

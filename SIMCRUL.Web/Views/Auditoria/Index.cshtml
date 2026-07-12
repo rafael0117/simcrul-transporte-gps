@@ -1,23 +1,23 @@
-@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+﻿@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
-    ViewData["Title"] = "Bitácora de Trazabilidad Operacional";
+    ViewData["Title"] = "BitÃ¡cora de Trazabilidad Operacional";
 }
 
 <div class="page-shell">
     <!-- Header -->
     <div style="margin-bottom: 2rem;">
         <h1 style="font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-            <i class="fa-solid fa-clock-rotate-left"></i> Bitácora de Trazabilidad Operacional
+            <i class="fa-solid fa-clock-rotate-left"></i> BitÃ¡cora de Trazabilidad Operacional
         </h1>
         <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">
-            Historial detallado de todas las modificaciones de base de datos capturadas automáticamente por el interceptor EF Core.
+            Historial detallado de todas las modificaciones de base de datos capturadas automÃ¡ticamente por el interceptor EF Core.
         </p>
     </div>
 
     <!-- Filter Panel -->
     <div class="glass-card" style="padding: 1.5rem; margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
         <h3 style="font-size: 1rem; font-weight: 600; color: white; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-            <i class="fa-solid fa-filter"></i> Filtros de Búsqueda
+            <i class="fa-solid fa-filter"></i> Filtros de BÃºsqueda
         </h3>
         <div class="form-grid-auto">
             <div>
@@ -25,7 +25,7 @@
                 <input type="text" id="filter-table" class="custom-input" placeholder="Ej: VEHICULOS" />
             </div>
             <div>
-                <label class="form-label">Acción</label>
+                <label class="form-label">AcciÃ³n</label>
                 <select id="filter-action" class="custom-input">
                     <option value="">Todas las acciones</option>
                     <option value="INSERT">INSERT (Crear)</option>
@@ -59,7 +59,7 @@
                 <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
                     <th style="padding: 1rem;">Fecha</th>
                     <th style="padding: 1rem;">Usuario Responsable</th>
-                    <th style="padding: 1rem;">Acción</th>
+                    <th style="padding: 1rem;">AcciÃ³n</th>
                     <th style="padding: 1rem;">Tabla Afectada</th>
                     <th style="padding: 1rem; text-align: right;">Detalle de Cambios</th>
                 </tr>
@@ -68,7 +68,7 @@
                 <!-- Rendered dynamically -->
                 <tr>
                     <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                        Realice una búsqueda para cargar registros.
+                        Realice una bÃºsqueda para cargar registros.
                     </td>
                 </tr>
             </tbody>
@@ -90,7 +90,7 @@
 
         <div class="audit-detail-grid">
             <div><strong>Usuario:</strong> <span id="detail-user" style="color: var(--primary);">SYSTEM</span></div>
-            <div><strong>Acción:</strong> <span id="detail-action" class="action-badge">UPDATE</span></div>
+            <div><strong>AcciÃ³n:</strong> <span id="detail-action" class="action-badge">UPDATE</span></div>
             <div><strong>Tabla Afectada:</strong> <span id="detail-table" style="color: var(--secondary);">VEHICULOS</span></div>
         </div>
 
@@ -165,7 +165,7 @@
 
 @section Scripts {
     <script>
-        const apiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
+        const apiBaseUrl = '@(Configuration["ApiSettings:BrowserBaseUrl"] ?? Configuration["ApiSettings:BaseUrl"])';
         const token = '@Context.Session.GetString("Token")';
 
         let auditLogs = [];
@@ -204,18 +204,18 @@
                     auditLogs = await res.json();
                     renderTable(auditLogs);
                 } else {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--danger);">Error al consultar bitácora (${res.status}).</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--danger);">Error al consultar bitÃ¡cora (${res.status}).</td></tr>`;
                 }
             } catch (err) {
                 console.error(err);
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--danger);">Falla de conexión con el servidor.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--danger);">Falla de conexiÃ³n con el servidor.</td></tr>`;
             }
         }
 
         function renderTable(list) {
             const tbody = document.getElementById('audit-list');
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--text-muted);">No se encontraron registros de auditoría en este rango.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--text-muted);">No se encontraron registros de auditorÃ­a en este rango.</td></tr>`;
                 return;
             }
 
@@ -335,3 +335,4 @@
         fetchAuditLogs();
     </script>
 }
+

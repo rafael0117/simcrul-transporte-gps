@@ -1,4 +1,4 @@
-@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+﻿@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     ViewData["Title"] = "Consultar estadisticas operativas";
 }
@@ -498,8 +498,8 @@
 @section Scripts {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
     <script>
-        const opsApiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
-        const opsSignalrUrl = '@Configuration["ApiSettings:SignalrUrl"]';
+        const opsApiBaseUrl = '@(Configuration["ApiSettings:BrowserBaseUrl"] ?? Configuration["ApiSettings:BaseUrl"])';
+        const opsSignalrUrl = '@(Configuration["ApiSettings:BrowserSignalrUrl"] ?? Configuration["ApiSettings:SignalrUrl"])';
         const metricTitles = {
             distancia: 'Distancia recorrida',
             tiempo: 'Tiempo operativo',
@@ -868,3 +868,5 @@
         }
     </script>
 }
+
+

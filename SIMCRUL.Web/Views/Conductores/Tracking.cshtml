@@ -1,4 +1,4 @@
-@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+﻿@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @using SIMCRUL.Web.Infrastructure
 @{
     ViewData["Title"] = "Modo Conductor GPS";
@@ -503,7 +503,7 @@ else
         }
 
         if (canShareLocation) {
-            const apiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
+            const apiBaseUrl = '@(Configuration["ApiSettings:BrowserBaseUrl"] ?? Configuration["ApiSettings:BaseUrl"])';
             const token = '@Context.Session.GetString("Token")';
             const assignmentStatus = document.getElementById('assignment-status');
             const startButton = document.getElementById('start-sharing');
@@ -780,3 +780,4 @@ else
         }
     </script>
 }
+

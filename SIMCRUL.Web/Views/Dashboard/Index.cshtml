@@ -1,11 +1,11 @@
-@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+﻿@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     ViewData["Title"] = "Panel de Control Operativo";
 }
 
 <div class="kpi-grid" style="margin: 0 auto; max-width: 1400px; padding: 1.5rem 1.5rem 0 1.5rem;">
     <div class="glass-card kpi-card">
-        <span class="kpi-title"><i class="fa-solid fa-bus" style="color: var(--primary);"></i> Vehículos en Ruta</span>
+        <span class="kpi-title"><i class="fa-solid fa-bus" style="color: var(--primary);"></i> VehÃ­culos en Ruta</span>
         <span class="kpi-value" id="kpi-active-vehicles">0</span>
     </div>
     <div class="glass-card kpi-card">
@@ -27,7 +27,7 @@
     <div class="glass-card sidebar" style="overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem;">
         <div>
             <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-                <i class="fa-solid fa-print"></i> Reportes de Auditoría
+                <i class="fa-solid fa-print"></i> Reportes de AuditorÃ­a
             </h3>
             <div style="display: flex; flex-direction: column; gap: 1rem;">
                 <div>
@@ -56,7 +56,7 @@
             </h3>
             <div id="alerts-container" style="flex: 1; overflow-y: auto; padding-right: 0.25rem;">
                 <!-- Dynamically populated -->
-                <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; margin-top: 2rem;">Sin alertas críticas pendientes.</p>
+                <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; margin-top: 2rem;">Sin alertas crÃ­ticas pendientes.</p>
             </div>
         </div>
     </div>
@@ -70,8 +70,8 @@
 @section Scripts {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
     <script>
-        const apiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
-        const signalrUrl = '@Configuration["ApiSettings:SignalrUrl"]';
+        const apiBaseUrl = '@(Configuration["ApiSettings:BrowserBaseUrl"] ?? Configuration["ApiSettings:BaseUrl"])';
+        const signalrUrl = '@(Configuration["ApiSettings:BrowserSignalrUrl"] ?? Configuration["ApiSettings:SignalrUrl"])';
 
         // Set dates on report pickers
         document.getElementById('report-from').valueAsDate = new Date();
@@ -148,7 +148,7 @@
                     const alerts = await res.json();
                     const container = document.getElementById('alerts-container');
                     if (alerts.length === 0) {
-                        container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; margin-top: 2rem;">Sin alertas críticas pendientes.</p>`;
+                        container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; margin-top: 2rem;">Sin alertas crÃ­ticas pendientes.</p>`;
                         document.getElementById('alert-badge').style.display = 'none';
                         return;
                     }
@@ -201,7 +201,7 @@
 
             const popupContent = `
                 <div style="color: #0f172a; font-family: 'Outfit', sans-serif; min-width: 150px;">
-                    <h4 style="margin-bottom: 4px; border-bottom: 1px solid #ddd; padding-bottom: 2px;">Vehículo: ${v.placa}</h4>
+                    <h4 style="margin-bottom: 4px; border-bottom: 1px solid #ddd; padding-bottom: 2px;">VehÃ­culo: ${v.placa}</h4>
                     <p style="margin: 2px 0;"><strong>Ruta:</strong> ${v.codigoRuta || 'N/A'}</p>
                     <p style="margin: 2px 0;"><strong>Conductor:</strong> ${v.conductor || 'N/A'}</p>
                     <p style="margin: 2px 0;"><strong>Velocidad:</strong> ${v.velocidadKmh || 0} km/h</p>
@@ -250,7 +250,7 @@
             const alertHtml = `
                 <div class="alert-item ${a.severidad >= 4 ? 'severity-high' : 'severity-medium'}" id="alert-card-${a.idAlerta}">
                     <div style="display: flex; justify-content: space-between; align-items: start;">
-                        <span style="font-weight: bold; color: var(--danger); font-size: 0.95rem;">${a.tipo || 'Infracción'}</span>
+                        <span style="font-weight: bold; color: var(--danger); font-size: 0.95rem;">${a.tipo || 'InfracciÃ³n'}</span>
                         <span style="font-size: 0.75rem; color: var(--text-secondary);">${a.fecha}</span>
                     </div>
                     <span style="font-size: 0.85rem; color: var(--text-primary);">${a.descripcion}</span>
@@ -285,7 +285,7 @@
         }
 
         async function attendAlert(id) {
-            const obs = prompt("Ingrese observaciones sobre la infracción:");
+            const obs = prompt("Ingrese observaciones sobre la infracciÃ³n:");
             if (obs === null) return; // user cancelled
 
             try {
@@ -295,7 +295,7 @@
                     body: JSON.stringify(obs)
                 });
                 if (res.ok) {
-                    alert("Alerta archivada con éxito.");
+                    alert("Alerta archivada con Ã©xito.");
                     fetchPendingAlerts();
                 }
             } catch (err) {
@@ -319,13 +319,13 @@
             fetchPendingAlerts();
             fetchKpis();
             // Optional: Shake map or flash screen for warning
-            console.log("Nueva alerta crítica:", a);
+            console.log("Nueva alerta crÃ­tica:", a);
         });
 
         async function startSignalR() {
             try {
                 await connection.start();
-                console.log("Conectado con éxito a SignalR GpsHub");
+                console.log("Conectado con Ã©xito a SignalR GpsHub");
             } catch (err) {
                 console.error("SignalR Connection Error:", err);
                 setTimeout(startSignalR, 5000);
@@ -340,3 +340,5 @@
 
     </script>
 }
+
+

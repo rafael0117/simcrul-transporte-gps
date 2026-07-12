@@ -1,4 +1,4 @@
-@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+﻿@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     ViewData["Title"] = "Administracion de Usuarios";
 }
@@ -194,7 +194,7 @@
 
 @section Scripts {
     <script>
-        const apiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
+        const apiBaseUrl = '@(Configuration["ApiSettings:BrowserBaseUrl"] ?? Configuration["ApiSettings:BaseUrl"])';
         const token = '@Context.Session.GetString("Token")';
 
         let allUsers = [];
@@ -439,3 +439,4 @@
         initPage();
     </script>
 }
+

@@ -1,4 +1,4 @@
-@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+﻿@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     ViewData["Title"] = "Mantenimiento de Conductores";
 }
@@ -195,7 +195,7 @@
 
 @section Scripts {
     <script>
-        const apiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
+        const apiBaseUrl = '@(Configuration["ApiSettings:BrowserBaseUrl"] ?? Configuration["ApiSettings:BaseUrl"])';
         const token = '@Context.Session.GetString("Token")';
 
         let allDrivers = [];
@@ -428,3 +428,4 @@
         Promise.all([fetchDrivers(), fetchDriverUsers()]);
     </script>
 }
+

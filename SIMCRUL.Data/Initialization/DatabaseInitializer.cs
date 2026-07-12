@@ -12,9 +12,11 @@ public static class DatabaseInitializer
     {
         // Ensure the database and schema are created
         await context.Database.EnsureCreatedAsync();
+        await EnsureCoordinatePrecisionAsync(context);
         await EnsureCompatibilitySchemaAsync(context);
         await EnsureOperationalDashboardProceduresAsync(context);
         await EnsureElChinoRouteAsync(context);
+        await EnsureProfessorDemoRouteAsync(context);
 
         // 1. Seed Roles
         var requiredRoles = new[] { "Administrador", "Supervisor", "Operador", "Conductor", "Pasajero" };
@@ -214,6 +216,45 @@ public static class DatabaseInitializer
         return builder.ToString();
     }
 
+    private static async Task EnsureCoordinatePrecisionAsync(ApplicationDbContext context)
+    {
+        const string sql = """
+            IF COL_LENGTH('RUTA_PUNTOS_CONTROL', 'latitud') IS NOT NULL
+            BEGIN
+                ALTER TABLE RUTA_PUNTOS_CONTROL ALTER COLUMN latitud DECIMAL(18,7) NOT NULL;
+                ALTER TABLE RUTA_PUNTOS_CONTROL ALTER COLUMN longitud DECIMAL(18,7) NOT NULL;
+            END
+
+            IF COL_LENGTH('PARADEROS', 'latitud') IS NOT NULL
+            BEGIN
+                ALTER TABLE PARADEROS ALTER COLUMN latitud DECIMAL(18,7) NOT NULL;
+                ALTER TABLE PARADEROS ALTER COLUMN longitud DECIMAL(18,7) NOT NULL;
+            END
+
+            IF COL_LENGTH('GPS_LECTURAS', 'latitud') IS NOT NULL
+            BEGIN
+                ALTER TABLE GPS_LECTURAS ALTER COLUMN latitud DECIMAL(18,7) NOT NULL;
+                ALTER TABLE GPS_LECTURAS ALTER COLUMN longitud DECIMAL(18,7) NOT NULL;
+            END
+
+            IF COL_LENGTH('ALERTAS', 'latitud') IS NOT NULL
+            BEGIN
+                ALTER TABLE ALERTAS ALTER COLUMN latitud DECIMAL(18,7) NULL;
+                ALTER TABLE ALERTAS ALTER COLUMN longitud DECIMAL(18,7) NULL;
+            END
+
+            IF COL_LENGTH('VIAJES', 'latitud_inicio') IS NOT NULL
+            BEGIN
+                ALTER TABLE VIAJES ALTER COLUMN latitud_inicio DECIMAL(18,7) NULL;
+                ALTER TABLE VIAJES ALTER COLUMN longitud_inicio DECIMAL(18,7) NULL;
+                ALTER TABLE VIAJES ALTER COLUMN latitud_fin DECIMAL(18,7) NULL;
+                ALTER TABLE VIAJES ALTER COLUMN longitud_fin DECIMAL(18,7) NULL;
+            END
+            """;
+
+        await context.Database.ExecuteSqlRawAsync(sql);
+    }
+
     private static async Task EnsureCompatibilitySchemaAsync(ApplicationDbContext context)
     {
         const string sql = """
@@ -262,6 +303,30 @@ public static class DatabaseInitializer
             """;
 
         await context.Database.ExecuteSqlRawAsync(sql);
+
+        const string pendingAlertsViewSql = """
+            EXEC(N'
+            CREATE OR ALTER VIEW dbo.vw_AlertasPendientes
+            AS
+            SELECT
+                a.id_alerta AS IdAlerta,
+                ta.nombre AS TipoAlerta,
+                CONCAT(v.placa, '' - '', v.codigo_interno) AS Vehiculo,
+                LTRIM(RTRIM(CONCAT(ISNULL(c.nombres, ''''), '' '', ISNULL(c.apellidos, '''')))) AS Conductor,
+                a.fecha_alerta AS FechaAlerta,
+                a.descripcion AS Descripcion,
+                a.latitud AS Latitud,
+                a.longitud AS Longitud,
+                a.estado AS Estado
+            FROM dbo.ALERTAS a
+            INNER JOIN dbo.TIPOS_ALERTA ta ON ta.id_tipo_alerta = a.id_tipo_alerta
+            INNER JOIN dbo.VEHICULOS v ON v.id_vehiculo = a.id_vehiculo
+            LEFT JOIN dbo.CONDUCTORES c ON c.id_conductor = a.id_conductor
+            WHERE a.estado = ''PENDIENTE'';
+            ');
+            """;
+
+        await context.Database.ExecuteSqlRawAsync(pendingAlertsViewSql);
     }
 
     private static async Task EnsureOperationalDashboardProceduresAsync(ApplicationDbContext context)
@@ -935,6 +1000,210 @@ public static class DatabaseInitializer
         return type;
     }
 
+    private static async Task EnsureProfessorDemoRouteAsync(ApplicationDbContext context)
+    {
+        const string routeCode = "DEMO-PROF";
+        const string mobileImei = "MOBILE-DEMO-001";
+
+        var company = await context.EmpresasTransporte.FirstOrDefaultAsync(e => e.Ruc == "20999999991");
+        if (company == null)
+        {
+            company = new EmpresaTransporte
+            {
+                Ruc = "20999999991",
+                RazonSocial = "SIMCRUL Demo GPS S.A.C.",
+                NombreComercial = "Demo Profesor",
+                Direccion = "Independencia, Lima",
+                Telefono = "980793614",
+                Email = "simcrul2026@gmail.com",
+                Estado = true,
+                FechaRegistro = DateTime.UtcNow
+            };
+            context.EmpresasTransporte.Add(company);
+            await context.SaveChangesAsync();
+        }
+
+        var route = await context.Rutas.FirstOrDefaultAsync(r => r.CodigoRuta == routeCode);
+        if (route == null)
+        {
+            route = new Ruta
+            {
+                IdEmpresa = company.IdEmpresa,
+                CodigoRuta = routeCode,
+                NombreRuta = "Demo profesor - Quisquis a Calcuchimac",
+                Origen = "Quisquis 254, Independencia 15331",
+                Destino = "Calcuchimac 200, Independencia 15331",
+                DistanciaKm = 0.19M,
+                TiempoEstimadoMin = 3,
+                VelocidadMaximaKmh = 35,
+                Activa = true,
+                FechaRegistro = DateTime.UtcNow
+            };
+            context.Rutas.Add(route);
+            await context.SaveChangesAsync();
+        }
+        else
+        {
+            route.IdEmpresa = company.IdEmpresa;
+            route.NombreRuta = "Demo profesor - Quisquis a Calcuchimac";
+            route.Origen = "Quisquis 254, Independencia 15331";
+            route.Destino = "Calcuchimac 200, Independencia 15331";
+            route.DistanciaKm = 0.19M;
+            route.TiempoEstimadoMin = 3;
+            route.VelocidadMaximaKmh = 35;
+            route.Activa = true;
+        }
+
+        var demoPoints = new[]
+        {
+            ("Inicio Quisquis 254", -11.9832600M, -77.0392500M, 45),
+            ("Quisquis hacia Valle Sagrado", -11.9836100M, -77.0405200M, 45),
+            ("Giro Valle Sagrado de los Incas", -11.9831800M, -77.0406500M, 45),
+            ("Fin Calcuchimac 200", -11.9831600M, -77.0406000M, 45)
+        };
+
+        var existingPoints = await context.RutaPuntosControl
+            .Where(p => p.IdRuta == route.IdRuta)
+            .ToListAsync();
+        if (existingPoints.Count > 0)
+        {
+            context.RutaPuntosControl.RemoveRange(existingPoints);
+            await context.SaveChangesAsync();
+        }
+
+        var pointOrder = 1;
+        context.RutaPuntosControl.AddRange(demoPoints.Select(point => new RutaPuntoControl
+        {
+            IdRuta = route.IdRuta,
+            Orden = pointOrder++,
+            Descripcion = point.Item1,
+            Latitud = point.Item2,
+            Longitud = point.Item3,
+            RadioToleranciaMetros = point.Item4,
+            EsParadero = true
+        }));
+        await context.SaveChangesAsync();
+
+        var existingStops = await context.RutaParaderos
+            .Where(rp => rp.IdRuta == route.IdRuta)
+            .ToListAsync();
+        if (existingStops.Count > 0)
+        {
+            context.RutaParaderos.RemoveRange(existingStops);
+            await context.SaveChangesAsync();
+        }
+
+        if (!await context.RutaParaderos.AnyAsync(rp => rp.IdRuta == route.IdRuta))
+        {
+            var startStop = await FindOrCreateParaderoAsync(
+                context,
+                "Quisquis 254",
+                "Punto de inicio demo GPS",
+                "Independencia",
+                -11.9832600M,
+                -77.0392500M);
+            var endStop = await FindOrCreateParaderoAsync(
+                context,
+                "Calcuchimac 200",
+                "Punto final demo GPS",
+                "Independencia",
+                -11.9831600M,
+                -77.0406000M);
+
+            context.RutaParaderos.AddRange(
+                new RutaParadero { IdRuta = route.IdRuta, IdParadero = startStop.IdParadero, Orden = 1, TiempoEstimadoDesdeInicioMin = 0, Activo = true },
+                new RutaParadero { IdRuta = route.IdRuta, IdParadero = endStop.IdParadero, Orden = 2, TiempoEstimadoDesdeInicioMin = 3, Activo = true });
+            await context.SaveChangesAsync();
+        }
+
+        var conductor = await context.Conductores.FirstOrDefaultAsync(c => c.Dni == "70000001");
+        if (conductor == null)
+        {
+            conductor = new Conductor
+            {
+                IdEmpresa = company.IdEmpresa,
+                Nombres = "Demo",
+                Apellidos = "Profesor GPS",
+                Dni = "70000001",
+                NumeroLicencia = "Q70000001",
+                CategoriaLicencia = "A-IIIa",
+                FechaVencimientoLicencia = DateTime.Today.AddYears(2),
+                Telefono = "900000001",
+                Estado = true,
+                FechaRegistro = DateTime.UtcNow
+            };
+            context.Conductores.Add(conductor);
+            await context.SaveChangesAsync();
+        }
+
+        var vehicle = await context.Vehiculos.FirstOrDefaultAsync(v => v.Placa == "GPS-001");
+        if (vehicle == null)
+        {
+            vehicle = new Vehiculo
+            {
+                IdEmpresa = company.IdEmpresa,
+                Placa = "GPS-001",
+                CodigoInterno = "MOVIL-DEMO",
+                TipoVehiculo = "MOVIL",
+                Marca = "Celular",
+                Modelo = "GPS navegador",
+                Anio = DateTime.Today.Year,
+                CapacidadPasajeros = 1,
+                VelocidadMaximaKmh = 35,
+                Estado = true,
+                FechaRegistro = DateTime.UtcNow
+            };
+            context.Vehiculos.Add(vehicle);
+            await context.SaveChangesAsync();
+        }
+
+        var device = await context.DispositivosGps.FirstOrDefaultAsync(d => d.Imei == mobileImei);
+        if (device == null)
+        {
+            context.DispositivosGps.Add(new DispositivoGps
+            {
+                IdVehiculo = vehicle.IdVehiculo,
+                Imei = mobileImei,
+                NumeroSerie = "MOBILE-DEMO-PROF",
+                Proveedor = "Navegador movil",
+                FechaInstalacion = DateTime.UtcNow,
+                Estado = true
+            });
+        }
+        else
+        {
+            device.IdVehiculo = vehicle.IdVehiculo;
+            device.Estado = true;
+        }
+
+        var assignment = await context.AsignacionesOperacion.FirstOrDefaultAsync(a =>
+            a.IdRuta == route.IdRuta &&
+            a.IdVehiculo == vehicle.IdVehiculo);
+        if (assignment == null)
+        {
+            context.AsignacionesOperacion.Add(new AsignacionOperacion
+            {
+                IdRuta = route.IdRuta,
+                IdVehiculo = vehicle.IdVehiculo,
+                IdConductor = conductor.IdConductor,
+                FechaInicioProgramada = DateTime.Today,
+                FechaFinProgramada = DateTime.Today.AddDays(1).AddSeconds(-1),
+                Turno = "DEMO",
+                Estado = "ACTIVA",
+                Observaciones = "Demo de ubicacion real por celular: Quisquis 254 a Calcuchimac 200."
+            });
+        }
+        else
+        {
+            assignment.IdConductor = conductor.IdConductor;
+            assignment.Estado = "ACTIVA";
+            assignment.FechaInicioProgramada = DateTime.Today;
+            assignment.FechaFinProgramada = DateTime.Today.AddDays(1).AddSeconds(-1);
+        }
+
+        await context.SaveChangesAsync();
+    }
+
     private static async Task<Paradero> FindOrCreateParaderoAsync(
         ApplicationDbContext context,
         string nombre,
@@ -949,6 +1218,11 @@ public static class DatabaseInitializer
 
         if (paradero != null)
         {
+            paradero.DireccionReferencia = referencia;
+            paradero.Latitud = latitud;
+            paradero.Longitud = longitud;
+            paradero.Activo = true;
+            await context.SaveChangesAsync();
             return paradero;
         }
 

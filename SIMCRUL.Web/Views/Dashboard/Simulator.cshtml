@@ -1,4 +1,4 @@
-@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+﻿@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     ViewData["Title"] = "Simulador GPS Integrado";
 }
@@ -22,7 +22,7 @@
                     <input type="text" id="sim-imei" class="custom-input" value="IMEI88847294829" />
                 </div>
                 <div>
-                    <label class="form-label">Frecuencia de Envío (segundos)</label>
+                    <label class="form-label">Frecuencia de EnvÃ­o (segundos)</label>
                     <input type="number" id="sim-interval" class="custom-input" value="3" min="1" max="10" />
                 </div>
                 <div class="panel-actions" style="margin-top: 0.5rem;">
@@ -45,20 +45,20 @@
                     <i class="fa-solid fa-gauge-high"></i> Forzar Exceso Velocidad
                 </button>
                 <button onclick="setEventOverride('DESVIO')" class="btn-primary" style="background: var(--secondary); padding: 0.5rem; border-radius: 8px; font-size: 0.85rem;">
-                    <i class="fa-solid fa-route"></i> Forzar Desvío Ruta
+                    <i class="fa-solid fa-route"></i> Forzar DesvÃ­o Ruta
                 </button>
                 <button onclick="setEventOverride('PANICO')" class="btn-primary" style="background: var(--danger); padding: 0.5rem; border-radius: 8px; font-size: 0.85rem;">
-                    <i class="fa-solid fa-skull-crossbones"></i> Activar Pánico (S.O.S)
+                    <i class="fa-solid fa-skull-crossbones"></i> Activar PÃ¡nico (S.O.S)
                 </button>
             </div>
         </div>
 
         <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
             <h3 style="margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-                <i class="fa-solid fa-terminal"></i> Log de Transmisión
+                <i class="fa-solid fa-terminal"></i> Log de TransmisiÃ³n
             </h3>
             <div id="sim-console" style="flex: 1; background: #070a13; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem; font-family: monospace; font-size: 0.75rem; overflow-y: auto; color: #a3e635;">
-                [Sistema] Listo para simulación. Seleccione una ruta para ver los puntos de control en el mapa.
+                [Sistema] Listo para simulaciÃ³n. Seleccione una ruta para ver los puntos de control en el mapa.
             </div>
         </div>
     </div>
@@ -71,7 +71,7 @@
 
 @section Scripts {
     <script>
-        const apiBaseUrl = '@Configuration["ApiSettings:BaseUrl"]';
+        const apiBaseUrl = '@(Configuration["ApiSettings:BrowserBaseUrl"] ?? Configuration["ApiSettings:BaseUrl"])';
         const map = L.map('map').setView([-12.046374, -77.042793], 12);
         
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -153,7 +153,7 @@
 
         function setEventOverride(event) {
             currentOverrideEvent = event;
-            logConsole(`Evento forzado configurado para el siguiente envío: ${event}`);
+            logConsole(`Evento forzado configurado para el siguiente envÃ­o: ${event}`);
         }
 
         function startSimulation() {
@@ -166,12 +166,12 @@
             document.getElementById('btn-stop-sim').disabled = false;
             document.getElementById('sim-route-select').disabled = true;
 
-            logConsole("Simulación iniciada...");
+            logConsole("SimulaciÃ³n iniciada...");
             
             simIntervalId = setInterval(async () => {
                 if (simulationIndex >= simulationPath.length) {
                     simulationIndex = 0; // Loop simulation
-                    logConsole("Fin de la ruta alcanzado. Reiniciando bucle de simulación...");
+                    logConsole("Fin de la ruta alcanzado. Reiniciando bucle de simulaciÃ³n...");
                 }
 
                 let currentCoords = simulationPath[simulationIndex];
@@ -229,7 +229,7 @@
                         logConsole(`Error API: ${resJson.message}`);
                     }
                 } catch (err) {
-                    logConsole(`Fallo de conexión al enviar telemetría: ${err}`);
+                    logConsole(`Fallo de conexiÃ³n al enviar telemetrÃ­a: ${err}`);
                 }
 
                 // Increment index & reset override
@@ -243,7 +243,7 @@
             if (simIntervalId) {
                 clearInterval(simIntervalId);
                 simIntervalId = null;
-                logConsole("Simulación detenida.");
+                logConsole("SimulaciÃ³n detenida.");
             }
             document.getElementById('btn-start-sim').disabled = false;
             document.getElementById('btn-stop-sim').disabled = true;
@@ -255,3 +255,4 @@
 
     </script>
 }
+

@@ -1,0 +1,274 @@
+@{
+    ViewData["Title"] = "Compartir ubicacion";
+    Layout = "_Layout";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "/api/";
+    var imei = ViewBag.Imei as string ?? "MOBILE-DEMO-001";
+    var routeName = ViewBag.RouteName as string ?? "Demo profesor";
+}
+
+<style>
+    .share-wrap {
+        max-width: 780px;
+        margin: 0 auto;
+        padding: 1.5rem;
+    }
+
+    .share-panel {
+        border: 1px solid rgba(0, 212, 255, 0.24);
+        background: rgba(15, 23, 42, 0.88);
+        border-radius: 14px;
+        padding: 1.25rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    .share-title {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        margin-bottom: 0.75rem;
+    }
+
+    .share-title i {
+        color: var(--primary);
+        font-size: 2rem;
+    }
+
+    .share-title h1 {
+        margin: 0;
+        font-size: 1.45rem;
+    }
+
+    .share-meta {
+        color: var(--text-secondary);
+        font-size: 0.92rem;
+        margin-bottom: 1rem;
+    }
+
+    .share-status {
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(2, 6, 23, 0.38);
+        border-radius: 12px;
+        padding: 0.95rem;
+        display: grid;
+        gap: 0.55rem;
+        margin: 1rem 0;
+    }
+
+    .share-status strong {
+        color: var(--text-primary);
+    }
+
+    .share-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+    }
+
+    .share-btn {
+        border: 0;
+        border-radius: 10px;
+        padding: 0.85rem 0.9rem;
+        color: white;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        cursor: pointer;
+    }
+
+    .share-btn.stop {
+        background: var(--danger);
+    }
+
+    .share-btn.test {
+        background: #334155;
+    }
+
+    .share-btn.deviation {
+        background: #f59e0b;
+        color: #111827;
+    }
+
+    .share-log {
+        margin-top: 1rem;
+        max-height: 180px;
+        overflow: auto;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        border-top: 1px solid rgba(148, 163, 184, 0.18);
+        padding-top: 0.75rem;
+    }
+
+    @@media (max-width: 640px) {
+        .share-wrap {
+            padding: 0.85rem;
+        }
+
+        .share-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="share-wrap">
+    <section class="share-panel">
+        <div class="share-title">
+            <i class="fa-solid fa-location-crosshairs"></i>
+            <div>
+                <h1>Compartir ubicacion GPS</h1>
+                <div class="share-meta">@routeName</div>
+            </div>
+        </div>
+
+        <p class="share-meta">
+            Abre esta pantalla desde tu celular, acepta el permiso GPS y mantenla abierta durante el recorrido.
+            Si te alejas de la ruta hacia Vilcanota, SIMCRUL registrara un desvio y enviara la alerta por correo.
+        </p>
+
+        <div class="share-status">
+            <div><strong>Estado:</strong> <span id="share-state">Detenido</span></div>
+            <div><strong>IMEI demo:</strong> @imei</div>
+            <div><strong>Latitud:</strong> <span id="lat">-</span></div>
+            <div><strong>Longitud:</strong> <span id="lng">-</span></div>
+            <div><strong>Velocidad:</strong> <span id="speed">0</span> km/h</div>
+            <div><strong>Ultimo envio:</strong> <span id="last-send">-</span></div>
+        </div>
+
+        <div class="share-grid">
+            <button class="share-btn" type="button" onclick="startSharing()">
+                <i class="fa-solid fa-play"></i> Iniciar transmision
+            </button>
+            <button class="share-btn stop" type="button" onclick="stopSharing()">
+                <i class="fa-solid fa-stop"></i> Detener
+            </button>
+            <button class="share-btn test" type="button" onclick="sendStartPoint()">
+                <i class="fa-solid fa-map-pin"></i> Enviar punto Quisquis
+            </button>
+            <button class="share-btn deviation" type="button" onclick="sendVilcanotaDeviation()">
+                <i class="fa-solid fa-route"></i> Simular desvio Vilcanota
+            </button>
+        </div>
+
+        <div class="share-log" id="share-log"></div>
+    </section>
+</div>
+
+@section Scripts {
+    <script>
+        const apiBaseUrl = '@apiBaseUrl';
+        const imei = '@imei';
+        let watchId = null;
+        let lastPosition = null;
+        let lastSentAt = 0;
+
+        function log(message) {
+            const logBox = document.getElementById('share-log');
+            const time = new Date().toLocaleTimeString('es-PE');
+            logBox.insertAdjacentHTML('afterbegin', `<div>[${time}] ${escapeHtml(message)}</div>`);
+        }
+
+        function setState(message) {
+            document.getElementById('share-state').textContent = message;
+        }
+
+        function startSharing() {
+            if (!navigator.geolocation) {
+                setState('GPS no disponible');
+                log('Este navegador no soporta geolocalizacion.');
+                return;
+            }
+
+            if (watchId !== null) {
+                log('La transmision ya esta activa.');
+                return;
+            }
+
+            setState('Solicitando permiso GPS...');
+            watchId = navigator.geolocation.watchPosition(
+                position => {
+                    lastPosition = position;
+                    updatePositionUi(position);
+                    const now = Date.now();
+                    if (now - lastSentAt >= 3000) {
+                        lastSentAt = now;
+                        sendTelemetry(position.coords.latitude, position.coords.longitude, position.coords.speed || 0, position.coords.heading, position.coords.accuracy, null);
+                    }
+                },
+                error => {
+                    setState('Error GPS');
+                    log(`GPS: ${error.message}`);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 1000,
+                    timeout: 15000
+                });
+
+            setState('Transmitiendo');
+            log('Transmision GPS iniciada.');
+        }
+
+        function stopSharing() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            setState('Detenido');
+            log('Transmision detenida.');
+        }
+
+        function updatePositionUi(position) {
+            document.getElementById('lat').textContent = position.coords.latitude.toFixed(7);
+            document.getElementById('lng').textContent = position.coords.longitude.toFixed(7);
+            document.getElementById('speed').textContent = Math.max(0, (position.coords.speed || 0) * 3.6).toFixed(1);
+        }
+
+        async function sendTelemetry(latitud, longitud, speedMetersSecond = 0, heading = null, accuracy = null, forcedEvent = null) {
+            const payload = {
+                imei,
+                latitud,
+                longitud,
+                velocidadKmh: Math.max(0, Number(speedMetersSecond || 0) * 3.6),
+                rumboGrados: heading,
+                precisionMetros: accuracy,
+                eventoForzado: forcedEvent
+            };
+
+            try {
+                const response = await fetch(`${apiBaseUrl}gps/telemetry`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(result.message || 'No se pudo enviar la telemetria.');
+                }
+
+                document.getElementById('last-send').textContent = new Date().toLocaleTimeString('es-PE');
+                log(forcedEvent === 'DESVIO'
+                    ? 'Desvio Vilcanota enviado. Revisa alertas/correo.'
+                    : `Ubicacion enviada: ${latitud.toFixed(6)}, ${longitud.toFixed(6)}`);
+            } catch (error) {
+                setState('Error al enviar');
+                log(error.message);
+            }
+        }
+
+        function sendStartPoint() {
+            sendTelemetry(-11.9832600, -77.0392500, 0, null, 8, null);
+        }
+
+        function sendVilcanotaDeviation() {
+            sendTelemetry(-11.9839545, -77.0399452, 0, null, 8, 'DESVIO');
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+    </script>
+}

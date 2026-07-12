@@ -123,7 +123,9 @@ public class GpsProcessingService : IGpsProcessingService
             VelocidadKmh = (decimal)telemetryDto.VelocidadKmh,
             RumboGrados = telemetryDto.RumboGrados.HasValue ? (decimal)telemetryDto.RumboGrados.Value : null,
             PrecisionMetros = telemetryDto.PrecisionMetros.HasValue ? (decimal)telemetryDto.PrecisionMetros.Value : null,
-            OrigenDato = "SIMULADOR",
+            OrigenDato = telemetryDto.Imei.StartsWith("MOBILE-", StringComparison.OrdinalIgnoreCase)
+                ? "MOVIL_GPS"
+                : "SIMULADOR",
             Procesado = true,
             FechaRegistro = DateTime.UtcNow
         };
@@ -179,23 +181,34 @@ public class GpsProcessingService : IGpsProcessingService
 
             if (controlPoints.Count > 0)
             {
-                // Calculate distance from current coordinate to closest control point
+                // Calculate distance from current coordinate to the closest route segment.
                 double minDistance = double.MaxValue;
                 int closestTolerance = 150; // default 150m
 
-                foreach (var cp in controlPoints)
+                for (var index = 0; index < controlPoints.Count; index++)
                 {
-                    double distance = CalculateDistanceMeters(
-                        (double)reading.Latitud, 
-                        (double)reading.Longitud, 
-                        (double)cp.Latitud, 
-                        (double)cp.Longitud
-                    );
+                    var currentPoint = controlPoints[index];
+                    var nextPoint = index + 1 < controlPoints.Count ? controlPoints[index + 1] : null;
+                    var distance = nextPoint == null
+                        ? CalculateDistanceMeters(
+                            (double)reading.Latitud,
+                            (double)reading.Longitud,
+                            (double)currentPoint.Latitud,
+                            (double)currentPoint.Longitud)
+                        : CalculateDistanceToSegmentMeters(
+                            (double)reading.Latitud,
+                            (double)reading.Longitud,
+                            (double)currentPoint.Latitud,
+                            (double)currentPoint.Longitud,
+                            (double)nextPoint.Latitud,
+                            (double)nextPoint.Longitud);
 
                     if (distance < minDistance)
                     {
                         minDistance = distance;
-                        closestTolerance = (int)cp.RadioToleranciaMetros;
+                        closestTolerance = nextPoint == null
+                            ? (int)currentPoint.RadioToleranciaMetros
+                            : (int)Math.Max(currentPoint.RadioToleranciaMetros, nextPoint.RadioToleranciaMetros);
                     }
                 }
 
@@ -361,6 +374,41 @@ public class GpsProcessingService : IGpsProcessingService
 
         double c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
         return R * c;
+    }
+
+    private static double CalculateDistanceToSegmentMeters(
+        double lat,
+        double lon,
+        double startLat,
+        double startLon,
+        double endLat,
+        double endLon)
+    {
+        var referenceLat = ToRadians((lat + startLat + endLat) / 3);
+        const double metersPerDegreeLat = 111320;
+        var metersPerDegreeLon = metersPerDegreeLat * Math.Cos(referenceLat);
+
+        var px = lon * metersPerDegreeLon;
+        var py = lat * metersPerDegreeLat;
+        var ax = startLon * metersPerDegreeLon;
+        var ay = startLat * metersPerDegreeLat;
+        var bx = endLon * metersPerDegreeLon;
+        var by = endLat * metersPerDegreeLat;
+
+        var dx = bx - ax;
+        var dy = by - ay;
+        var lengthSquared = (dx * dx) + (dy * dy);
+        if (lengthSquared <= 0)
+        {
+            return CalculateDistanceMeters(lat, lon, startLat, startLon);
+        }
+
+        var ratio = Math.Clamp((((px - ax) * dx) + ((py - ay) * dy)) / lengthSquared, 0, 1);
+        var closestX = ax + (ratio * dx);
+        var closestY = ay + (ratio * dy);
+        var deltaX = px - closestX;
+        var deltaY = py - closestY;
+        return Math.Sqrt((deltaX * deltaX) + (deltaY * deltaY));
     }
 
     private static double ToRadians(double angle)
